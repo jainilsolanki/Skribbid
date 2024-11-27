@@ -145,8 +145,15 @@ const Game = ({ socket, username, roomId }) => {
         <div className="bg-gray-800 rounded-lg p-4 mb-4 flex justify-between items-center">
           <div className="flex items-center space-x-4">
             <h1 className="text-2xl font-bold">Skribbid Together</h1>
-            <div className="bg-blue-600/20 border border-blue-500 px-4 py-2 rounded-lg">
+            <div className="bg-blue-600/20 border border-blue-500 px-4 py-2 rounded-lg flex items-baseline gap-2">
               Room ID: <span className="font-mono font-bold">{roomId}</span>
+              <button 
+                onClick={() => navigator.clipboard.writeText(roomId)}
+                className="ml-2 px-2 py-1 bg-blue-500 hover:bg-blue-600 rounded text-sm transition-colors"
+                title="Copy Room ID"
+              >
+                Copy
+              </button>
             </div>
           </div>
           <div className="flex items-center gap-4">

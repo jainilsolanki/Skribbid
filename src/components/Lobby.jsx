@@ -18,8 +18,15 @@ const Lobby = ({ socket, username, roomId, players, onStartGame }) => {
         <div className="bg-gray-800 rounded-lg p-6 shadow-lg">
           <div className="text-center mb-8">
             <h1 className="text-3xl font-bold mb-2">Game Lobby</h1>
-            <div className="bg-blue-600/20 border border-blue-500 px-4 py-2 rounded-lg inline-block">
+            <div className="bg-blue-600/20 border border-blue-500 px-4 py-2 rounded-lg inline-flex items-baseline gap-2 mb-6">
               Room ID: <span className="font-mono font-bold">{roomId}</span>
+              <button 
+                onClick={() => navigator.clipboard.writeText(roomId)}
+                className="ml-2 px-2 py-1 bg-blue-500 hover:bg-blue-600 rounded text-sm transition-colors"
+                title="Copy Room ID"
+              >
+                Copy
+              </button>
             </div>
           </div>
 
