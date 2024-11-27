@@ -86,7 +86,7 @@ const Game = ({ socket, username, roomId }) => {
         {/* Header with Room Info */}
         <div className="bg-gray-800 rounded-lg p-4 mb-4 flex justify-between items-center">
           <div className="flex items-center space-x-4">
-            <h1 className="text-2xl font-bold">Skribble Game</h1>
+            <h1 className="text-2xl font-bold">Skribbid Together</h1>
             <div className="bg-blue-600/20 border border-blue-500 px-4 py-2 rounded-lg">
               Room ID: <span className="font-mono font-bold">{roomId}</span>
             </div>
