@@ -149,8 +149,13 @@ const Game = ({ socket, username, roomId }) => {
               Room ID: <span className="font-mono font-bold">{roomId}</span>
             </div>
           </div>
-          <div className="text-gray-400">
-            Playing as: <span className="font-semibold text-white">{username}</span>
+          <div className="flex items-center gap-4">
+            <div className="bg-purple-600/20 border border-purple-500 px-4 py-2 rounded-lg">
+              Round {currentRound}/{gameSettings.maxRounds}
+            </div>
+            <div className="text-gray-400">
+              Playing as: <span className="font-semibold text-white">{username}</span>
+            </div>
           </div>
         </div>
 
