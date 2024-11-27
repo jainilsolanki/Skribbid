@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { io } from 'socket.io-client';
 import Game from './components/Game';
 
@@ -9,6 +9,37 @@ function App() {
   const [username, setUsername] = useState('');
   const [roomId, setRoomId] = useState('');
   const [joined, setJoined] = useState(false);
+  const [error, setError] = useState('');
+  const [gameRoomId, setGameRoomId] = useState('');
+
+  useEffect(() => {
+    if (!socket) return;
+
+    socket.on('room_created', ({ roomId }) => {
+      console.log('Room created with ID:', roomId);
+      setGameRoomId(roomId);
+      setJoined(true);
+      setError('');
+    });
+
+    socket.on('join_success', ({ roomId }) => {
+      console.log('Successfully joined room:', roomId);
+      setGameRoomId(roomId);
+      setJoined(true);
+      setError('');
+    });
+
+    socket.on('room_error', ({ message }) => {
+      console.log('Room error:', message);
+      setError(message);
+    });
+
+    return () => {
+      socket.off('room_created');
+      socket.off('join_success');
+      socket.off('room_error');
+    };
+  }, [socket]);
 
   const handleJoin = () => {
     if (!username || !roomId) return;
@@ -16,8 +47,8 @@ function App() {
     const newSocket = io(ENDPOINT);
     setSocket(newSocket);
     
-    newSocket.emit('join_room', { username, roomId });
-    setJoined(true);
+    const upperRoomId = roomId.toUpperCase();
+    newSocket.emit('join_room', { username, roomId: upperRoomId });
   };
 
   const handleCreateRoom = () => {
@@ -27,20 +58,24 @@ function App() {
     setSocket(newSocket);
     
     newSocket.emit('create_room', { username });
-    setJoined(true);
   };
 
   if (joined && socket) {
-    return <Game socket={socket} username={username} roomId={roomId} />;
+    return <Game socket={socket} username={username} roomId={gameRoomId} />;
   }
 
   return (
-    <div className="h-full w-full grid grid-cols-1 md:grid-cols-2">
-      {/* Left Column - Form */}
-      <div className="bg-black flex items-center justify-center p-8">
+    <div className="h-full w-full grid grid-cols-1 md:grid-cols-12">
+      {/* Left Column - Form (4/12) */}
+      <div className="md:col-span-4 bg-black flex items-center justify-center p-8">
         <div className="w-full max-w-md">
           <div className="backdrop-blur-lg bg-white/5 p-8 rounded-2xl shadow-2xl border border-white/10">
             <h1 className="text-4xl font-bold text-white mb-8 text-center">Skribble Game</h1>
+            {error && (
+              <div className="bg-red-500/20 border border-red-500 text-red-200 p-3 rounded mb-4">
+                {error}
+              </div>
+            )}
             <div className="space-y-6">
               <div>
                 <input
@@ -81,9 +116,9 @@ function App() {
         </div>
       </div>
 
-      {/* Right Column - Image */}
+      {/* Right Column - Image (8/12) */}
       <div 
-        className="hidden md:block h-full w-full bg-cover bg-center bg-no-repeat"
+        className="hidden md:block md:col-span-8 h-full w-full bg-cover bg-center bg-no-repeat"
         style={{
           backgroundImage: `url('https://images.unsplash.com/photo-1671955101204-42ea9a352cdb?q=80&w=2071&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D')`
         }}
