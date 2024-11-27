@@ -67,7 +67,7 @@ function App() {
   return (
     <div className="h-full w-full grid grid-cols-1 md:grid-cols-12">
       {/* Left Column - Form (4/12) */}
-      <div className="md:col-span-4 bg-black flex items-center justify-center p-8">
+      <div className="md:col-span-4 bg-gray-900 flex items-center justify-center p-8">
         <div className="w-full max-w-md">
           <div className="backdrop-blur-lg bg-white/5 p-8 rounded-2xl shadow-2xl border border-white/10">
             <h1 className="text-4xl font-bold text-white mb-8 text-center">Skribble Game</h1>
