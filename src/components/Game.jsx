@@ -1,7 +1,10 @@
 import { useState, useEffect } from 'react';
 import Canvas from './Canvas';
+import Lobby from './Lobby';
+import Leaderboard from './Leaderboard';
 
 const Game = ({ socket, username, roomId }) => {
+  const [gameState, setGameState] = useState('lobby'); // lobby, playing, ended
   const [players, setPlayers] = useState([]);
   const [scores, setScores] = useState({});
   const [currentDrawer, setCurrentDrawer] = useState(null);
@@ -11,6 +14,11 @@ const Game = ({ socket, username, roomId }) => {
   const [chatMessages, setChatMessages] = useState([]);
   const [systemMessage, setSystemMessage] = useState('');
   const [roundActive, setRoundActive] = useState(false);
+  const [gameSettings, setGameSettings] = useState({
+    roundTime: 60,
+    maxRounds: 5
+  });
+  const [currentRound, setCurrentRound] = useState(1);
 
   useEffect(() => {
     if (!socket) return;
@@ -22,16 +30,29 @@ const Game = ({ socket, username, roomId }) => {
       setCurrentDrawer(currentDrawer);
     });
 
+    socket.on('game_started', (settings) => {
+      console.log('Game started with settings:', settings);
+      setGameSettings(settings);
+      setGameState('playing');
+    });
+
+    socket.on('game_ended', ({ finalPlayers }) => {
+      console.log('Game ended with final players:', finalPlayers);
+      setPlayers(finalPlayers);
+      setGameState('ended');
+    });
+
     socket.on('chat_message', ({ player, message }) => {
       console.log('Chat message received:', { player, message });
       setChatMessages(prev => [...prev, { player, message, type: 'guess' }]);
     });
 
-    socket.on('round_started', ({ drawer, timeLeft }) => {
+    socket.on('round_started', ({ drawer, timeLeft, roundNumber }) => {
       setCurrentDrawer(drawer);
       setTimeLeft(timeLeft);
       setRoundActive(true);
-      setSystemMessage(`New round started! ${drawer === socket.id ? 'You are' : 'Someone else is'} drawing.`);
+      setCurrentRound(roundNumber);
+      setSystemMessage(`New round started! ${drawer === socket.id ? 'You are' : players.find(p => p.id === drawer)?.username + ' is'} drawing.`);
     });
 
     socket.on('round_ended', ({ word, scores, nextDrawer }) => {
@@ -63,6 +84,8 @@ const Game = ({ socket, username, roomId }) => {
 
     return () => {
       socket.off('player_joined');
+      socket.off('game_started');
+      socket.off('game_ended');
       socket.off('chat_message');
       socket.off('round_started');
       socket.off('round_ended');
@@ -72,6 +95,19 @@ const Game = ({ socket, username, roomId }) => {
     };
   }, [socket, players]);
 
+  const handleStartGame = (settings) => {
+    socket.emit('start_game', { roomId, settings });
+  };
+
+  const handlePlayAgain = () => {
+    setGameState('lobby');
+    socket.emit('play_again', { roomId });
+  };
+
+  const handleExitToMenu = () => {
+    window.location.reload();
+  };
+
   const handleGuess = (e) => {
     e.preventDefault();
     if (!guess.trim()) return;
@@ -79,6 +115,28 @@ const Game = ({ socket, username, roomId }) => {
     socket.emit('guess', { roomId, guess: guess.trim() });
     setGuess('');
   };
+
+  if (gameState === 'lobby') {
+    return (
+      <Lobby
+        socket={socket}
+        username={username}
+        roomId={roomId}
+        onStartGame={handleStartGame}
+        players={players}
+      />
+    );
+  }
+
+  if (gameState === 'ended') {
+    return (
+      <Leaderboard
+        players={players}
+        onPlayAgain={handlePlayAgain}
+        onExit={handleExitToMenu}
+      />
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-900 text-white p-4">

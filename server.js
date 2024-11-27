@@ -38,10 +38,11 @@ function startNewRound(roomId) {
 
   clearInterval(room.timerInterval);
   room.word = getRandomWord();
-  room.timeLeft = 60;
+  room.timeLeft = room.settings.roundTime;
   room.currentDrawer = room.players[(room.currentDrawerIndex + 1) % room.players.length].id;
   room.currentDrawerIndex = (room.currentDrawerIndex + 1) % room.players.length;
   room.roundActive = true;
+  room.currentRound = (room.currentRound || 0) + 1;
 
   // First clear the canvas
   io.to(roomId).emit('clear_canvas');
@@ -50,7 +51,8 @@ function startNewRound(roomId) {
   setTimeout(() => {
     io.to(roomId).emit('round_started', {
       drawer: room.currentDrawer,
-      timeLeft: room.timeLeft
+      timeLeft: room.timeLeft,
+      roundNumber: room.currentRound
     });
 
     io.to(room.currentDrawer).emit('word_to_draw', room.word);
@@ -64,7 +66,7 @@ function startNewRound(roomId) {
         endRound(roomId);
       }
     }, 1000);
-  }, 500); // Small delay to ensure canvas is cleared before new round starts
+  }, 500);
 }
 
 function endRound(roomId) {
@@ -86,13 +88,25 @@ function endRound(roomId) {
       nextDrawer: nextDrawer
     });
 
+    // Check if game should end
+    if (room.currentRound >= room.settings.maxRounds) {
+      io.to(roomId).emit('game_ended', {
+        finalPlayers: room.players.map(p => ({
+          ...p,
+          score: room.scores[p.id]
+        }))
+      });
+      room.currentRound = 0;
+      return;
+    }
+
     // Start new round after a delay
     setTimeout(() => {
       if (rooms.has(roomId)) {
         startNewRound(roomId);
       }
     }, 3000);
-  }, 500); // Small delay to ensure canvas is cleared before round end message
+  }, 500);
 }
 
 io.on('connection', (socket) => {
@@ -114,7 +128,12 @@ io.on('connection', (socket) => {
       word: '',
       timeLeft: 60,
       roundActive: false,
-      timerInterval: null
+      timerInterval: null,
+      settings: {
+        roundTime: 60,
+        maxRounds: 5
+      },
+      currentRound: 0
     };
 
     rooms.set(roomId, room);
@@ -127,8 +146,6 @@ io.on('connection', (socket) => {
       scores: room.scores,
       currentDrawer: room.currentDrawer
     });
-
-    startNewRound(roomId);
   });
 
   socket.on('join_room', ({ roomId, username }) => {
@@ -186,7 +203,8 @@ io.on('connection', (socket) => {
       console.log('Sending current game state to new player');
       socket.emit('round_started', {
         drawer: room.currentDrawer,
-        timeLeft: room.timeLeft
+        timeLeft: room.timeLeft,
+        roundNumber: room.currentRound
       });
     }
   });
@@ -235,6 +253,45 @@ io.on('connection', (socket) => {
         endRound(roomId);
       }
     }
+  });
+
+  socket.on('start_game', ({ roomId, settings }) => {
+    console.log('Starting game:', { roomId, settings });
+    const room = rooms.get(roomId);
+    if (!room) return;
+
+    const player = room.players.find(p => p.id === socket.id);
+    if (!player || !player.isHost) return;
+
+    room.settings = settings;
+    room.currentRound = 0;
+
+    // Reset scores
+    room.players.forEach(p => {
+      room.scores[p.id] = 0;
+    });
+
+    io.to(roomId).emit('game_started', settings);
+    startNewRound(roomId);
+  });
+
+  socket.on('play_again', ({ roomId }) => {
+    console.log('Play again request:', roomId);
+    const room = rooms.get(roomId);
+    if (!room) return;
+
+    // Reset scores and round counter
+    room.players.forEach(p => {
+      room.scores[p.id] = 0;
+    });
+    room.currentRound = 0;
+
+    // Return to lobby state
+    io.to(roomId).emit('player_joined', {
+      players: room.players,
+      scores: room.scores,
+      currentDrawer: room.currentDrawer
+    });
   });
 
   socket.on('disconnecting', () => {
