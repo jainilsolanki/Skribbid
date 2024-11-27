@@ -55,7 +55,8 @@ function startNewRound(roomId) {
       roundNumber: room.currentRound
     });
 
-    io.to(room.currentDrawer).emit('word_to_draw', room.word);
+    // Send word to everyone
+    io.to(roomId).emit('word_to_draw', room.word);
 
     room.timerInterval = setInterval(() => {
       room.timeLeft--;

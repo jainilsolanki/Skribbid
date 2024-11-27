@@ -52,6 +52,7 @@ const Game = ({ socket, username, roomId }) => {
       setTimeLeft(timeLeft);
       setRoundActive(true);
       setCurrentRound(roundNumber);
+      setWord(''); // Reset word at round start
       setSystemMessage(`New round started! ${drawer === socket.id ? 'You are' : players.find(p => p.id === drawer)?.username + ' is'} drawing.`);
     });
 
@@ -60,6 +61,7 @@ const Game = ({ socket, username, roomId }) => {
       setSystemMessage(`Round ended! The word was: ${word}`);
       setScores(scores);
       setTimeLeft(0);
+      setWord(''); // Clear word at round end
     });
 
     socket.on('timer_update', (time) => {
@@ -147,7 +149,7 @@ const Game = ({ socket, username, roomId }) => {
             <h1 className="text-2xl font-bold">Skribbid Together</h1>
             <div className="bg-blue-600/20 border border-blue-500 px-4 py-2 rounded-lg flex items-baseline gap-2">
               Room ID: <span className="font-mono font-bold">{roomId}</span>
-              <button 
+              <button
                 onClick={() => navigator.clipboard.writeText(roomId)}
                 className="ml-2 px-2 py-1 bg-blue-500 hover:bg-blue-600 rounded text-sm transition-colors"
                 title="Copy Room ID"
@@ -175,7 +177,23 @@ const Game = ({ socket, username, roomId }) => {
                   <div className="bg-blue-600 px-3 py-1 rounded">
                     Time: {timeLeft}s
                   </div>
-                  {currentDrawer === socket.id && (
+                  {currentDrawer !== socket.id ? (
+                    <div className="bg-gray-600 px-3 py-2 rounded flex items-center justify-center min-w-[150px]">
+                      <div className="flex gap-4">
+                        {word ? word.split(' ').map((wordPart, wordIndex) => (
+                          <div key={wordIndex} className="flex gap-[2px] items-end">
+                            {Array.from({ length: wordPart.length }).map((_, letterIndex) => (
+                              <div
+                                key={letterIndex}
+                                className="w-6 h-[2px] bg-white"
+                              />
+                            ))}
+                            {wordPart.length}
+                            </div>
+                        )) : null}
+                      </div>
+                    </div>
+                  ) : (
                     <div className="bg-green-600 px-3 py-1 rounded">
                       Word to draw: {word}
                     </div>
@@ -204,11 +222,10 @@ const Game = ({ socket, username, roomId }) => {
                 {players.map((player) => (
                   <div
                     key={player.id}
-                    className={`p-2 rounded ${
-                      player.id === currentDrawer
+                    className={`p-2 rounded ${player.id === currentDrawer
                         ? 'bg-green-600/20 border border-green-500'
                         : 'bg-gray-700'
-                    }`}
+                      }`}
                   >
                     <div className="flex justify-between items-center">
                       <span>{player.username}</span>
@@ -228,11 +245,10 @@ const Game = ({ socket, username, roomId }) => {
                 {chatMessages.map((message, index) => (
                   <div
                     key={index}
-                    className={`mb-2 p-2 rounded ${
-                      message.type === 'system'
+                    className={`mb-2 p-2 rounded ${message.type === 'system'
                         ? 'bg-yellow-900/30 text-yellow-200'
                         : 'bg-gray-800'
-                    }`}
+                      }`}
                   >
                     {message.player && <span className="font-medium text-blue-400">{message.player}: </span>}
                     {message.message}
