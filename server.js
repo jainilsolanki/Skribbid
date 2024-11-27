@@ -43,25 +43,28 @@ function startNewRound(roomId) {
   room.currentDrawerIndex = (room.currentDrawerIndex + 1) % room.players.length;
   room.roundActive = true;
 
-  // Clear canvas for all players at the start of a new round
+  // First clear the canvas
   io.to(roomId).emit('clear_canvas');
 
-  io.to(roomId).emit('round_started', {
-    drawer: room.currentDrawer,
-    timeLeft: room.timeLeft
-  });
+  // Then start the new round
+  setTimeout(() => {
+    io.to(roomId).emit('round_started', {
+      drawer: room.currentDrawer,
+      timeLeft: room.timeLeft
+    });
 
-  io.to(room.currentDrawer).emit('word_to_draw', room.word);
+    io.to(room.currentDrawer).emit('word_to_draw', room.word);
 
-  room.timerInterval = setInterval(() => {
-    room.timeLeft--;
-    io.to(roomId).emit('timer_update', room.timeLeft);
+    room.timerInterval = setInterval(() => {
+      room.timeLeft--;
+      io.to(roomId).emit('timer_update', room.timeLeft);
 
-    if (room.timeLeft <= 0) {
-      clearInterval(room.timerInterval);
-      endRound(roomId);
-    }
-  }, 1000);
+      if (room.timeLeft <= 0) {
+        clearInterval(room.timerInterval);
+        endRound(roomId);
+      }
+    }, 1000);
+  }, 500); // Small delay to ensure canvas is cleared before new round starts
 }
 
 function endRound(roomId) {
@@ -71,21 +74,25 @@ function endRound(roomId) {
   clearInterval(room.timerInterval);
   room.roundActive = false;
 
-  // Clear canvas for all players at the end of the round
+  // First clear the canvas
   io.to(roomId).emit('clear_canvas');
 
-  const nextDrawer = room.players[(room.currentDrawerIndex + 1) % room.players.length].id;
-  io.to(roomId).emit('round_ended', {
-    word: room.word,
-    scores: room.scores,
-    nextDrawer: nextDrawer
-  });
-
+  // Then end the round
   setTimeout(() => {
-    if (rooms.has(roomId)) {
-      startNewRound(roomId);
-    }
-  }, 3000);
+    const nextDrawer = room.players[(room.currentDrawerIndex + 1) % room.players.length].id;
+    io.to(roomId).emit('round_ended', {
+      word: room.word,
+      scores: room.scores,
+      nextDrawer: nextDrawer
+    });
+
+    // Start new round after a delay
+    setTimeout(() => {
+      if (rooms.has(roomId)) {
+        startNewRound(roomId);
+      }
+    }, 3000);
+  }, 500); // Small delay to ensure canvas is cleared before round end message
 }
 
 io.on('connection', (socket) => {

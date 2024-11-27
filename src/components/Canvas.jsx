@@ -8,96 +8,130 @@ const Canvas = ({ socket, roomId, isDrawer }) => {
   const [color, setColor] = useState('#000000');
   const [showColorPicker, setShowColorPicker] = useState(false);
 
+  // Initialize canvas and context
   useEffect(() => {
     const canvas = canvasRef.current;
     const ctx = canvas.getContext('2d');
+    
+    // Set initial drawing styles
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
     ctx.lineWidth = 2;
+    ctx.strokeStyle = '#000000';
     setContext(ctx);
 
-    // Listen for draw events from other players
-    if (socket) {
-      socket.on('draw', (drawData) => {
-        console.log('Received draw event:', drawData);
-        const { x, y, color, drawing } = drawData;
-        ctx.strokeStyle = color;
-        if (!drawing) {
-          ctx.beginPath();
-          ctx.moveTo(x, y);
-        } else {
-          ctx.lineTo(x, y);
-          ctx.stroke();
-        }
-      });
+    // Fix for high DPI displays
+    const dpr = window.devicePixelRatio || 1;
+    const rect = canvas.getBoundingClientRect();
+    
+    canvas.width = rect.width * dpr;
+    canvas.height = rect.height * dpr;
+    
+    ctx.scale(dpr, dpr);
+    canvas.style.width = `${rect.width}px`;
+    canvas.style.height = `${rect.height}px`;
+  }, []); // Only run once on mount
 
-      socket.on('clear_canvas', () => {
-        console.log('Received clear canvas event');
-        clearCanvas();
-      });
-    }
+  // Socket event listeners
+  useEffect(() => {
+    if (!socket || !context) return;
+
+    socket.on('draw', (drawData) => {
+      const { x, y, color, drawing } = drawData;
+      context.strokeStyle = color;
+      if (!drawing) {
+        context.beginPath();
+        context.moveTo(x, y);
+      } else {
+        context.lineTo(x, y);
+        context.stroke();
+      }
+    });
+
+    socket.on('clear_canvas', () => {
+      console.log('Received clear canvas event');
+      const canvas = canvasRef.current;
+      if (canvas && context) {
+        context.clearRect(0, 0, canvas.width, canvas.height);
+        context.beginPath();
+        // Reset color to black
+        setColor('#000000');
+        context.strokeStyle = '#000000';
+      }
+    });
 
     return () => {
-      if (socket) {
-        socket.off('draw');
-        socket.off('clear_canvas');
-      }
+      socket.off('draw');
+      socket.off('clear_canvas');
     };
-  }, [socket]);
+  }, [socket, context]);
 
+  // Update context color when color changes
   useEffect(() => {
     if (context) {
       context.strokeStyle = color;
     }
   }, [color, context]);
 
-  const startDrawing = (e) => {
-    if (!isDrawer) return;
+  const getMousePos = (e) => {
+    const canvas = canvasRef.current;
+    const rect = canvas.getBoundingClientRect();
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+    
+    return {
+      x: (e.clientX - rect.left) * (1 / scaleX),
+      y: (e.clientY - rect.top) * (1 / scaleY)
+    };
+  };
 
-    const { offsetX, offsetY } = e.nativeEvent;
+  const startDrawing = (e) => {
+    if (!isDrawer || !context) return;
+
+    const pos = getMousePos(e);
     context.beginPath();
-    context.moveTo(offsetX, offsetY);
+    context.moveTo(pos.x, pos.y);
     setIsDrawing(true);
 
-    // Emit draw start event
-    console.log('Emitting draw start:', { x: offsetX, y: offsetY, color, drawing: false });
     socket?.emit('draw', {
       roomId,
-      x: offsetX,
-      y: offsetY,
+      x: pos.x,
+      y: pos.y,
       color,
       drawing: false
     });
   };
 
   const draw = (e) => {
-    if (!isDrawing || !isDrawer) return;
+    if (!isDrawing || !isDrawer || !context) return;
 
-    const { offsetX, offsetY } = e.nativeEvent;
-    context.lineTo(offsetX, offsetY);
+    const pos = getMousePos(e);
+    context.lineTo(pos.x, pos.y);
     context.stroke();
 
-    // Emit draw event
-    console.log('Emitting draw:', { x: offsetX, y: offsetY, color, drawing: true });
     socket?.emit('draw', {
       roomId,
-      x: offsetX,
-      y: offsetY,
+      x: pos.x,
+      y: pos.y,
       color,
       drawing: true
     });
   };
 
   const stopDrawing = () => {
-    if (!isDrawer) return;
-    
+    if (!isDrawer || !context) return;
     context.closePath();
     setIsDrawing(false);
   };
 
   const clearCanvas = () => {
     const canvas = canvasRef.current;
-    context.clearRect(0, 0, canvas.width, canvas.height);
+    if (canvas && context) {
+      context.clearRect(0, 0, canvas.width, canvas.height);
+      context.beginPath();
+      setColor('#000000');
+      context.strokeStyle = '#000000';
+    }
   };
 
   const handleClearCanvas = () => {
@@ -111,13 +145,25 @@ const Canvas = ({ socket, roomId, isDrawer }) => {
       <div className="flex justify-center items-center w-full">
         <canvas
           ref={canvasRef}
-          width={1024}
-          height={768}
-          className="w-full border-2 border-gray-300 rounded-lg bg-white cursor-crosshair"
+          className="w-full h-[600px] border-2 border-gray-300 rounded-lg bg-white cursor-crosshair touch-none"
           onMouseDown={startDrawing}
           onMouseMove={draw}
           onMouseUp={stopDrawing}
           onMouseOut={stopDrawing}
+          onTouchStart={(e) => {
+            e.preventDefault();
+            const touch = e.touches[0];
+            startDrawing({ clientX: touch.clientX, clientY: touch.clientY });
+          }}
+          onTouchMove={(e) => {
+            e.preventDefault();
+            const touch = e.touches[0];
+            draw({ clientX: touch.clientX, clientY: touch.clientY });
+          }}
+          onTouchEnd={(e) => {
+            e.preventDefault();
+            stopDrawing();
+          }}
         />
       </div>
       
