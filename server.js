@@ -37,12 +37,14 @@ function startNewRound(roomId) {
   if (!room) return;
 
   clearInterval(room.timerInterval);
+  clearInterval(room.hintInterval);  // Clear any existing hint interval
   room.word = getRandomWord();
   room.timeLeft = room.settings.roundTime;
   room.currentDrawer = room.players[(room.currentDrawerIndex + 1) % room.players.length].id;
   room.currentDrawerIndex = (room.currentDrawerIndex + 1) % room.players.length;
   room.roundActive = true;
   room.currentRound = (room.currentRound || 0) + 1;
+  room.revealedIndices = new Set();  // Track revealed letter indices
 
   // First clear the canvas
   io.to(roomId).emit('clear_canvas');
@@ -56,7 +58,49 @@ function startNewRound(roomId) {
     });
 
     // Send word to everyone
-    io.to(roomId).emit('word_to_draw', room.word);
+    io.to(roomId).emit('word_to_draw', {
+      word: room.word,
+      isDrawer: false,
+      revealedIndices: Array.from(room.revealedIndices)
+    });
+
+    // Send special message to drawer
+    io.to(room.currentDrawer).emit('word_to_draw', {
+      word: room.word,
+      isDrawer: true,
+      revealedIndices: Array.from(room.revealedIndices)
+    });
+
+    // Set up hint interval (every 30 seconds)
+    room.hintInterval = setInterval(() => {
+      if (room.revealedIndices.size < room.word.replace(/\s/g, '').length) {
+        // Find a random unrevealed letter (excluding spaces)
+        const wordWithoutSpaces = room.word.replace(/\s/g, '');
+        const availableIndices = [];
+        let spaceCount = 0;
+        
+        for (let i = 0; i < room.word.length; i++) {
+          if (room.word[i] === ' ') {
+            spaceCount++;
+            continue;
+          }
+          const adjustedIndex = i - spaceCount;
+          if (!room.revealedIndices.has(adjustedIndex)) {
+            availableIndices.push(adjustedIndex);
+          }
+        }
+
+        if (availableIndices.length > 0) {
+          const randomIndex = availableIndices[Math.floor(Math.random() * availableIndices.length)];
+          room.revealedIndices.add(randomIndex);
+          
+          // Send updated revealed indices to all players
+          io.to(roomId).emit('letter_revealed', {
+            revealedIndices: Array.from(room.revealedIndices)
+          });
+        }
+      }
+    }, 30000); // 30 seconds
 
     room.timerInterval = setInterval(() => {
       room.timeLeft--;
@@ -64,6 +108,7 @@ function startNewRound(roomId) {
 
       if (room.timeLeft <= 0) {
         clearInterval(room.timerInterval);
+        clearInterval(room.hintInterval);
         endRound(roomId);
       }
     }, 1000);
@@ -75,6 +120,7 @@ function endRound(roomId) {
   if (!room) return;
 
   clearInterval(room.timerInterval);
+  clearInterval(room.hintInterval);
   room.roundActive = false;
 
   // First clear the canvas
@@ -130,11 +176,13 @@ io.on('connection', (socket) => {
       timeLeft: 60,
       roundActive: false,
       timerInterval: null,
+      hintInterval: null,
       settings: {
         roundTime: 60,
         maxRounds: 5
       },
-      currentRound: 0
+      currentRound: 0,
+      revealedIndices: new Set()
     };
 
     rooms.set(roomId, room);
@@ -206,6 +254,11 @@ io.on('connection', (socket) => {
         drawer: room.currentDrawer,
         timeLeft: room.timeLeft,
         roundNumber: room.currentRound
+      });
+      socket.emit('word_to_draw', {
+        word: room.word,
+        isDrawer: false,
+        revealedIndices: Array.from(room.revealedIndices)
       });
     }
   });
@@ -304,6 +357,7 @@ io.on('connection', (socket) => {
 
         if (room.players.length === 0) {
           clearInterval(room.timerInterval);
+          clearInterval(room.hintInterval);
           rooms.delete(roomId);
         } else {
           if (socket.id === room.currentDrawer) {

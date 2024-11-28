@@ -9,6 +9,7 @@ const Game = ({ socket, username, roomId }) => {
   const [scores, setScores] = useState({});
   const [currentDrawer, setCurrentDrawer] = useState(null);
   const [word, setWord] = useState('');
+  const [wordLengths, setWordLengths] = useState([]);
   const [timeLeft, setTimeLeft] = useState(60);
   const [guess, setGuess] = useState('');
   const [chatMessages, setChatMessages] = useState([]);
@@ -19,6 +20,8 @@ const Game = ({ socket, username, roomId }) => {
     maxRounds: 5
   });
   const [currentRound, setCurrentRound] = useState(1);
+  const [isDrawer, setIsDrawer] = useState(false);
+  const [revealedIndices, setRevealedIndices] = useState([]);
 
   useEffect(() => {
     if (!socket) return;
@@ -68,9 +71,21 @@ const Game = ({ socket, username, roomId }) => {
       setTimeLeft(time);
     });
 
-    socket.on('word_to_draw', (word) => {
+    socket.on('word_to_draw', ({ word, isDrawer, revealedIndices }) => {
       setWord(word);
-      setSystemMessage(`Your word to draw is: ${word}`);
+      setIsDrawer(isDrawer);
+      setRevealedIndices(revealedIndices);
+      if (isDrawer) {
+        setSystemMessage(`Your word to draw is: ${word}`);
+      }
+    });
+
+    socket.on('letter_revealed', ({ revealedIndices }) => {
+      setRevealedIndices(revealedIndices);
+    });
+
+    socket.on('word_lengths', (lengths) => {
+      setWordLengths(lengths);
     });
 
     socket.on('correct_guess', ({ player, scores }) => {
@@ -93,6 +108,8 @@ const Game = ({ socket, username, roomId }) => {
       socket.off('round_ended');
       socket.off('timer_update');
       socket.off('word_to_draw');
+      socket.off('letter_revealed');
+      socket.off('word_lengths');
       socket.off('correct_guess');
     };
   }, [socket, players]);
@@ -177,20 +194,24 @@ const Game = ({ socket, username, roomId }) => {
                   <div className="bg-blue-600 px-3 py-1 rounded">
                     Time: {timeLeft}s
                   </div>
-                  {currentDrawer !== socket.id ? (
+                  {!isDrawer ? (
                     <div className="bg-gray-600 px-3 py-2 rounded flex items-center justify-center min-w-[150px]">
                       <div className="flex gap-4">
-                        {word ? word.split(' ').map((wordPart, wordIndex) => (
+                        {word.split(' ').map((wordPart, wordIndex) => (
                           <div key={wordIndex} className="flex gap-[2px] items-end">
-                            {Array.from({ length: wordPart.length }).map((_, letterIndex) => (
-                              <div
-                                key={letterIndex}
-                                className="w-6 h-[2px] bg-white"
-                              />
-                            ))}
-                            {wordPart.length}
-                            </div>
-                        )) : null}
+                            {wordPart.split('').map((letter, letterIndex) => {
+                              const adjustedIndex = wordPart.length * wordIndex + letterIndex;
+                              const isRevealed = revealedIndices.includes(adjustedIndex);
+                              return isRevealed ? (
+                                <div key={letterIndex} className="w-6 text-center border-b-2 border-white">
+                                  {letter}
+                                </div>
+                              ) : (
+                                <div key={letterIndex} className="w-6 h-[2px] bg-white" />
+                              );
+                            })}
+                          </div>
+                        ))}
                       </div>
                     </div>
                   ) : (
