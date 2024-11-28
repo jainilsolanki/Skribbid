@@ -148,89 +148,108 @@ async function startNewRound(roomId) {
   clearInterval(room.timerInterval);
   clearInterval(room.hintInterval);  // Clear any existing hint interval
   
-  try {
-    room.word = await getRandomWord();
-  } catch (error) {
-    console.error('Error getting word, using fallback:', error);
-    room.word = getRandomLocalWord();
-  }
-
-  room.timeLeft = room.settings.roundTime;
   room.currentDrawer = room.players[(room.currentDrawerIndex + 1) % room.players.length].id;
   room.currentDrawerIndex = (room.currentDrawerIndex + 1) % room.players.length;
-  room.roundActive = true;
+  room.roundActive = false; // Don't start round until word is chosen
   room.currentRound = (room.currentRound || 0) + 1;
-  room.revealedIndices = new Set();  // Track revealed letter indices
+  room.revealedIndices = new Set();
 
-  // First clear the canvas
-  io.to(roomId).emit('clear_canvas');
+  // Generate 3 random words
+  try {
+    const wordChoices = [];
+    for (let i = 0; i < 3; i++) {
+      const word = await getRandomWord();
+      wordChoices.push(word);
+    }
+    room.wordChoices = wordChoices;
+    
+    // Clear the canvas
+    io.to(roomId).emit('clear_canvas');
 
-  // Then start the new round
-  setTimeout(() => {
+    // Send word choices to drawer
+    io.to(room.currentDrawer).emit('choose_word', {
+      words: wordChoices,
+      timeLeft: 10 // 10 seconds to choose
+    });
+
+    // Send round started event (without word)
     io.to(roomId).emit('round_started', {
       drawer: room.currentDrawer,
-      timeLeft: room.timeLeft,
+      timeLeft: room.settings.roundTime,
       roundNumber: room.currentRound
     });
 
-    // Send word to everyone
-    io.to(roomId).emit('word_to_draw', {
-      word: room.word,
-      isDrawer: false,
-      revealedIndices: Array.from(room.revealedIndices)
-    });
+  } catch (error) {
+    console.error('Error getting words:', error);
+    room.word = getRandomLocalWord();
+    startRoundWithWord(roomId, room.word);
+  }
+}
 
-    // Send special message to drawer
-    io.to(room.currentDrawer).emit('word_to_draw', {
-      word: room.word,
-      isDrawer: true,
-      revealedIndices: Array.from(room.revealedIndices)
-    });
+function startRoundWithWord(roomId, chosenWord) {
+  const room = rooms.get(roomId);
+  if (!room) return;
 
-    // Set up hint interval (every 30 seconds)
-    room.hintInterval = setInterval(() => {
-      const wordWithoutSpaces = room.word.replace(/\s/g, '');
-      const maxReveals = Math.ceil(wordWithoutSpaces.length * 0.25); // Only reveal 25% of letters
+  room.word = chosenWord;
+  room.timeLeft = room.settings.roundTime;
+  room.roundActive = true;
 
-      if (room.revealedIndices.size < maxReveals) {
-        // Find a random unrevealed letter (excluding spaces)
-        const availableIndices = [];
-        let spaceCount = 0;
+  // Send word to everyone (hidden for non-drawers)
+  io.to(roomId).emit('word_to_draw', {
+    word: room.word,
+    isDrawer: false,
+    revealedIndices: Array.from(room.revealedIndices)
+  });
+
+  // Send special message to drawer
+  io.to(room.currentDrawer).emit('word_to_draw', {
+    word: room.word,
+    isDrawer: true,
+    revealedIndices: Array.from(room.revealedIndices)
+  });
+
+  // Set up hint interval (every 30 seconds)
+  room.hintInterval = setInterval(() => {
+    const wordWithoutSpaces = room.word.replace(/\s/g, '');
+    const maxReveals = Math.ceil(wordWithoutSpaces.length * 0.25);
+
+    if (room.revealedIndices.size < maxReveals) {
+      const availableIndices = [];
+      let spaceCount = 0;
+      
+      for (let i = 0; i < room.word.length; i++) {
+        if (room.word[i] === ' ') {
+          spaceCount++;
+          continue;
+        }
+        const adjustedIndex = i - spaceCount;
+        if (!room.revealedIndices.has(adjustedIndex)) {
+          availableIndices.push(adjustedIndex);
+        }
+      }
+
+      if (availableIndices.length > 0) {
+        const randomIndex = availableIndices[Math.floor(Math.random() * availableIndices.length)];
+        room.revealedIndices.add(randomIndex);
         
-        for (let i = 0; i < room.word.length; i++) {
-          if (room.word[i] === ' ') {
-            spaceCount++;
-            continue;
-          }
-          const adjustedIndex = i - spaceCount;
-          if (!room.revealedIndices.has(adjustedIndex)) {
-            availableIndices.push(adjustedIndex);
-          }
-        }
-
-        if (availableIndices.length > 0) {
-          const randomIndex = availableIndices[Math.floor(Math.random() * availableIndices.length)];
-          room.revealedIndices.add(randomIndex);
-          
-          // Send updated revealed indices to all players
-          io.to(roomId).emit('letter_revealed', {
-            revealedIndices: Array.from(room.revealedIndices)
-          });
-        }
+        io.to(roomId).emit('letter_revealed', {
+          revealedIndices: Array.from(room.revealedIndices)
+        });
       }
-    }, 30000); // 30 seconds
+    }
+  }, 30000);
 
-    room.timerInterval = setInterval(() => {
-      room.timeLeft--;
-      io.to(roomId).emit('timer_update', room.timeLeft);
+  // Start round timer
+  room.timerInterval = setInterval(() => {
+    room.timeLeft--;
+    io.to(roomId).emit('timer_update', room.timeLeft);
 
-      if (room.timeLeft <= 0) {
-        clearInterval(room.timerInterval);
-        clearInterval(room.hintInterval);
-        endRound(roomId);
-      }
-    }, 1000);
-  }, 500);
+    if (room.timeLeft <= 0) {
+      clearInterval(room.timerInterval);
+      clearInterval(room.hintInterval);
+      endRound(roomId);
+    }
+  }, 1000);
 }
 
 function endRound(roomId) {
@@ -500,6 +519,17 @@ io.on('connection', (socket) => {
       scores: room.scores,
       currentDrawer: room.currentDrawer
     });
+  });
+
+  socket.on('choose_word', ({ roomId, wordIndex }) => {
+    const room = rooms.get(roomId);
+    if (!room || socket.id !== room.currentDrawer || !room.wordChoices) return;
+
+    const chosenWord = room.wordChoices[wordIndex];
+    if (!chosenWord) return;
+
+    startRoundWithWord(roomId, chosenWord);
+    delete room.wordChoices; // Clean up word choices
   });
 
   socket.on('disconnecting', () => {

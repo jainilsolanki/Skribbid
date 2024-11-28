@@ -9,6 +9,7 @@ const Game = ({ socket, username, roomId }) => {
   const [scores, setScores] = useState({});
   const [currentDrawer, setCurrentDrawer] = useState(null);
   const [word, setWord] = useState('');
+  const [wordChoices, setWordChoices] = useState(null);
   const [wordLengths, setWordLengths] = useState([]);
   const [timeLeft, setTimeLeft] = useState(60);
   const [guess, setGuess] = useState('');
@@ -100,6 +101,17 @@ const Game = ({ socket, username, roomId }) => {
       }]);
     });
 
+    socket.on('choose_word', ({ words, timeLeft }) => {
+      setWordChoices(words);
+      // Start a timer for word selection
+      setTimeout(() => {
+        if (words.length > 0) {
+          // If no word was chosen, automatically choose the first one
+          socket.emit('choose_word', { roomId, wordIndex: 0 });
+        }
+      }, timeLeft * 1000);
+    });
+
     return () => {
       socket.off('player_joined');
       socket.off('game_started');
@@ -112,8 +124,9 @@ const Game = ({ socket, username, roomId }) => {
       socket.off('letter_revealed');
       socket.off('word_lengths');
       socket.off('correct_guess');
+      socket.off('choose_word');
     };
-  }, [socket, players]);
+  }, [socket, players, roomId]);
 
   useEffect(() => {
     if (chatContainerRef.current) {
@@ -142,6 +155,29 @@ const Game = ({ socket, username, roomId }) => {
     setGuess('');
   };
 
+  const WordChoiceOverlay = ({ words, onChoose }) => {
+    if (!words) return null;
+    
+    return (
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div className="bg-gray-800 p-6 rounded-lg shadow-xl">
+          <h2 className="text-xl font-bold mb-4">Choose a word to draw:</h2>
+          <div className="space-y-3">
+            {words.map((word, index) => (
+              <button
+                key={index}
+                onClick={() => onChoose(index)}
+                className="w-full px-6 py-3 bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors text-lg"
+              >
+                {word}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   if (gameState === 'lobby') {
     return (
       <Lobby
@@ -166,6 +202,13 @@ const Game = ({ socket, username, roomId }) => {
 
   return (
     <div className="min-h-screen bg-gray-900 text-white p-4">
+      <WordChoiceOverlay
+        words={wordChoices}
+        onChoose={(index) => {
+          socket.emit('choose_word', { roomId, wordIndex: index });
+          setWordChoices(null);
+        }}
+      />
       <div className="max-w-6xl mx-auto">
         {/* Header with Room Info */}
         <div className="bg-gray-800 rounded-lg p-4 mb-4 flex justify-between items-center">
@@ -216,7 +259,7 @@ const Game = ({ socket, username, roomId }) => {
                               ) : (
                                 <div key={letterIndex} className="w-6 h-[2px] bg-white" />
                               );
-                            })}
+                            })}{/* Add word length */}
                             {wordPart.length}
                           </div>
                         )) : <div className="text-gray-400">Waiting for word...</div>}
