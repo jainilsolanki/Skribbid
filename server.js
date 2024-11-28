@@ -112,6 +112,29 @@ async function getRandomWord() {
   }
 }
 
+// Calculate similarity between two words
+function calculateSimilarity(str1, str2) {
+  const track = Array(str2.length + 1).fill(null).map(() =>
+    Array(str1.length + 1).fill(null));
+  for (let i = 0; i <= str1.length; i += 1) {
+    track[0][i] = i;
+  }
+  for (let j = 0; j <= str2.length; j += 1) {
+    track[j][0] = j;
+  }
+  for (let j = 1; j <= str2.length; j += 1) {
+    for (let i = 1; i <= str1.length; i += 1) {
+      const indicator = str1[i - 1] === str2[j - 1] ? 0 : 1;
+      track[j][i] = Math.min(
+        track[j][i - 1] + 1,
+        track[j - 1][i] + 1,
+        track[j - 1][i - 1] + indicator
+      );
+    }
+  }
+  return (Math.max(str1.length, str2.length) - track[str2.length][str1.length]) / Math.max(str1.length, str2.length);
+}
+
 const rooms = new Map();
 
 function generateRoomId() {
@@ -382,24 +405,60 @@ io.on('connection', (socket) => {
     const player = room.players.find(p => p.id === socket.id);
     if (!player) return;
 
-    // Broadcast the guess to all players in the room
-    io.to(roomId).emit('chat_message', {
-      player: player.username,
-      message: guess
-    });
+    const cleanGuess = guess.toLowerCase().trim();
+    const cleanWord = room.word.toLowerCase().trim();
+    
+    console.log('Comparing:', { cleanGuess, cleanWord });
 
-    if (guess.toLowerCase() === room.word.toLowerCase()) {
-      room.scores[socket.id] += 100;
+    // Check for exact match
+    if (cleanGuess === cleanWord) {
+      const points = Math.ceil((room.timeLeft / room.settings.roundTime) * 500);
+      room.scores[socket.id] = (room.scores[socket.id] || 0) + points;
+      
+      // Broadcast the guess and correct guess events
+      io.to(roomId).emit('chat_message', {
+        player: player.username,
+        message: guess,
+        type: 'guess'
+      });
+      
       io.to(roomId).emit('correct_guess', {
         player: socket.id,
         scores: room.scores
       });
-      
+
+      // Check if everyone has guessed correctly
       const nonDrawerPlayers = room.players.filter(p => p.id !== room.currentDrawer);
       const allGuessedCorrectly = nonDrawerPlayers.every(p => room.scores[p.id] > 0);
       
       if (allGuessedCorrectly) {
         endRound(roomId);
+      }
+    } else {
+      // Check for similar words
+      const similarity = calculateSimilarity(cleanGuess, cleanWord);
+      console.log('Similarity:', similarity);
+
+      // Broadcast the guess
+      io.to(roomId).emit('chat_message', {
+        player: player.username,
+        message: guess,
+        type: 'guess'
+      });
+
+      // Send "close" messages only to the guesser
+      if (similarity >= 0.75) {
+        socket.emit('chat_message', {
+          player: 'System',
+          message: 'You are very close!',
+          type: 'system'
+        });
+      } else if (similarity >= 0.6) {
+        socket.emit('chat_message', {
+          player: 'System',
+          message: 'You are close!',
+          type: 'system'
+        });
       }
     }
   });
