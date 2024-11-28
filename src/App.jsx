@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { io } from 'socket.io-client';
 import Game from './components/Game';
 
-const ENDPOINT = 'http://localhost:3001';
+const ENDPOINT = 'http://192.168.0.152:3001';
 
 function App() {
   const [socket, setSocket] = useState(null);
