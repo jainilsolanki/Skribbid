@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Canvas from './Canvas';
 import Lobby from './Lobby';
 import Leaderboard from './Leaderboard';
@@ -22,6 +22,7 @@ const Game = ({ socket, username, roomId }) => {
   const [currentRound, setCurrentRound] = useState(1);
   const [isDrawer, setIsDrawer] = useState(false);
   const [revealedIndices, setRevealedIndices] = useState([]);
+  const chatContainerRef = useRef(null);
 
   useEffect(() => {
     if (!socket) return;
@@ -113,6 +114,12 @@ const Game = ({ socket, username, roomId }) => {
       socket.off('correct_guess');
     };
   }, [socket, players]);
+
+  useEffect(() => {
+    if (chatContainerRef.current) {
+      chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
+    }
+  }, [chatMessages, systemMessage]);
 
   const handleStartGame = (settings) => {
     socket.emit('start_game', { roomId, settings });
@@ -263,7 +270,10 @@ const Game = ({ socket, username, roomId }) => {
             {/* Chat & Guesses */}
             <div className="bg-gray-800 p-4 rounded-lg">
               <h2 className="text-xl font-semibold mb-3">Chat & Guesses</h2>
-              <div className="h-[calc(100vh-24rem)] overflow-y-auto border border-gray-700 rounded p-2 mb-4 bg-gray-900/50">
+              <div 
+                ref={chatContainerRef}
+                className="h-[calc(100vh-24rem)] overflow-y-auto border border-gray-700 rounded p-2 mb-4 bg-gray-900/50 scroll-smooth"
+              >
                 {chatMessages.map((message, index) => (
                   <div
                     key={index}
