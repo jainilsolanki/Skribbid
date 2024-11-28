@@ -23,6 +23,7 @@ const Game = ({ socket, username, roomId }) => {
   const [currentRound, setCurrentRound] = useState(1);
   const [isDrawer, setIsDrawer] = useState(false);
   const [revealedIndices, setRevealedIndices] = useState([]);
+  const [wordChoiceTimer, setWordChoiceTimer] = useState(0);
   const chatContainerRef = useRef(null);
 
   useEffect(() => {
@@ -103,16 +104,34 @@ const Game = ({ socket, username, roomId }) => {
 
     socket.on('choose_word', ({ words, timeLeft }) => {
       setWordChoices(words);
+      setWordChoiceTimer(timeLeft);
+      
+      // Start countdown timer
+      const countdownInterval = setInterval(() => {
+        setWordChoiceTimer(prev => {
+          if (prev <= 1) {
+            clearInterval(countdownInterval);
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+
       // Start a timer for word selection
       const timer = setTimeout(() => {
         if (words.length > 0) {
           // If no word was chosen, automatically choose the first one
           socket.emit('choose_word', { roomId, wordIndex: 0 });
           setWordChoices(null); // Clear word choices after auto-selection
+          setWordChoiceTimer(0);
         }
+        clearInterval(countdownInterval);
       }, timeLeft * 1000);
 
-      return () => clearTimeout(timer); // Clean up timer
+      return () => {
+        clearTimeout(timer);
+        clearInterval(countdownInterval);
+      };
     });
 
     return () => {
@@ -164,7 +183,12 @@ const Game = ({ socket, username, roomId }) => {
     return (
       <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
         <div className="bg-gray-800 p-6 rounded-lg shadow-xl">
-          <h2 className="text-xl font-bold mb-4">Choose a word to draw:</h2>
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="text-xl font-bold">Choose a word to draw:</h2>
+            <div className="bg-blue-600 px-3 py-1 rounded-lg">
+              {wordChoiceTimer}s
+            </div>
+          </div>
           <div className="space-y-3">
             {words.map((word, index) => (
               <button
@@ -210,6 +234,7 @@ const Game = ({ socket, username, roomId }) => {
         onChoose={(index) => {
           socket.emit('choose_word', { roomId, wordIndex: index });
           setWordChoices(null); // Clear word choices after manual selection
+          setWordChoiceTimer(0);
         }}
       />
       <div className="max-w-6xl mx-auto">
