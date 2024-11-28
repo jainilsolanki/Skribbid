@@ -104,12 +104,15 @@ const Game = ({ socket, username, roomId }) => {
     socket.on('choose_word', ({ words, timeLeft }) => {
       setWordChoices(words);
       // Start a timer for word selection
-      setTimeout(() => {
+      const timer = setTimeout(() => {
         if (words.length > 0) {
           // If no word was chosen, automatically choose the first one
           socket.emit('choose_word', { roomId, wordIndex: 0 });
+          setWordChoices(null); // Clear word choices after auto-selection
         }
       }, timeLeft * 1000);
+
+      return () => clearTimeout(timer); // Clean up timer
     });
 
     return () => {
@@ -206,7 +209,7 @@ const Game = ({ socket, username, roomId }) => {
         words={wordChoices}
         onChoose={(index) => {
           socket.emit('choose_word', { roomId, wordIndex: index });
-          setWordChoices(null);
+          setWordChoices(null); // Clear word choices after manual selection
         }}
       />
       <div className="max-w-6xl mx-auto">
