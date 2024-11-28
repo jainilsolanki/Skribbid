@@ -210,6 +210,7 @@ const Game = ({ socket, username, roomId }) => {
                                 <div key={letterIndex} className="w-6 h-[2px] bg-white" />
                               );
                             })}
+                            {wordPart.length}
                           </div>
                         )) : <div className="text-gray-400">Waiting for word...</div>}
                       </div>

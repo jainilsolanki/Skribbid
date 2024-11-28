@@ -15,12 +15,102 @@ const io = new Server(server, {
 });
 
 const words = [
-  'apple', 'banana', 'cat', 'dog', 'elephant',
-  'flower', 'guitar', 'house', 'ice cream', 'jellyfish',
-  'kangaroo', 'lion', 'monkey', 'notebook', 'orange',
-  'penguin', 'queen', 'rainbow', 'sun', 'tree',
-  'umbrella', 'violin', 'whale', 'xylophone', 'zebra'
+  // Animals
+  'elephant', 'giraffe', 'penguin', 'dolphin', 'kangaroo', 'octopus', 'butterfly', 'rhinoceros', 'squirrel', 'hamster',
+  'panda', 'koala', 'cheetah', 'zebra', 'gorilla', 'hedgehog', 'platypus', 'flamingo', 'raccoon', 'armadillo',
+  
+  // Food & Drinks
+  'pizza', 'hamburger', 'spaghetti', 'chocolate', 'ice cream', 'pancake', 'sandwich', 'popcorn', 'taco', 'sushi',
+  'coffee', 'milkshake', 'cupcake', 'cookie', 'donut', 'burrito', 'lasagna', 'croissant', 'smoothie', 'waffle',
+  
+  // Objects
+  'umbrella', 'telescope', 'backpack', 'calculator', 'headphones', 'keyboard', 'microphone', 'sunglasses', 'toothbrush', 'wallet',
+  'camera', 'compass', 'laptop', 'paintbrush', 'scissors', 'telescope', 'watch', 'binoculars', 'microscope', 'thermometer',
+  
+  // Sports & Games
+  'basketball', 'volleyball', 'skateboard', 'football', 'baseball', 'tennis', 'bowling', 'chess', 'darts', 'golf',
+  'hockey', 'rugby', 'surfing', 'swimming', 'boxing', 'karate', 'archery', 'billiards', 'cricket', 'frisbee',
+  
+  // Nature
+  'mountain', 'waterfall', 'rainbow', 'volcano', 'tornado', 'island', 'desert', 'forest', 'beach', 'glacier',
+  'canyon', 'ocean', 'river', 'sunset', 'sunrise', 'moonlight', 'hurricane', 'avalanche', 'earthquake', 'lightning',
+  
+  // Transportation
+  'airplane', 'helicopter', 'submarine', 'motorcycle', 'bicycle', 'spaceship', 'sailboat', 'train', 'tractor', 'ambulance',
+  'firetruck', 'scooter', 'skateboard', 'rollerblades', 'jetski', 'bulldozer', 'rocket', 'trolley', 'limousine', 'taxi',
+  
+  // Professions
+  'astronaut', 'firefighter', 'scientist', 'detective', 'musician', 'magician', 'architect', 'chef', 'pilot', 'teacher',
+  'doctor', 'artist', 'photographer', 'programmer', 'veterinarian', 'archaeologist', 'dentist', 'electrician', 'plumber', 'carpenter',
+  
+  // Entertainment
+  'guitar', 'piano', 'trumpet', 'violin', 'drums', 'microphone', 'television', 'cinema', 'theatre', 'concert',
+  'circus', 'carnival', 'rollercoaster', 'ferriswheel', 'carousel', 'puppet', 'juggler', 'acrobat', 'magician', 'comedian'
 ];
+
+// Function to fetch a random word from DataMuse API
+async function fetchRandomWord() {
+  try {
+    // Get common words that are:
+    // - Nouns (tagged as 'n')
+    // - Frequently used (using frequency count 'f')
+    // - 3-16 letters long (using multiple patterns)
+    const patterns = ['???', '????', '?????', '??????', '???????', '????????', '?????????', '??????????', '???????????', '????????????', '?????????????', '??????????????', '???????????????', '????????????????'];
+    const pattern = patterns[Math.floor(Math.random() * patterns.length)];
+    
+    const response = await fetch(`https://api.datamuse.com/words?sp=${pattern}&max=100&md=pf&tags=n`);
+    const words = await response.json();
+    
+    // Filter for simple, common words
+    const validWords = words.filter(wordObj => {
+      const word = wordObj.word.toLowerCase();
+      // Check if it's a common word (frequency > 1000)
+      const isCommon = wordObj.tags && wordObj.tags.includes('n') && wordObj.f > 1000;
+      
+      return (
+        word.length >= 3 && 
+        word.length <= 16 &&
+        /^[a-z]+$/.test(word) &&
+        !word.includes('-') &&
+        !word.includes('_') &&
+        isCommon
+      );
+    });
+
+    if (validWords.length > 0) {
+      // Sort by frequency and take top 20 most common words
+      validWords.sort((a, b) => (b.f || 0) - (a.f || 0));
+      const topWords = validWords.slice(0, 20);
+      // Return a random word from top common words
+      return topWords[Math.floor(Math.random() * topWords.length)].word;
+    }
+    
+    throw new Error('No valid words found');
+  } catch (error) {
+    console.error('Error fetching from DataMuse API:', error);
+    return getRandomLocalWord();
+  }
+}
+
+// Get word from local list
+function getRandomLocalWord() {
+  return words[Math.floor(Math.random() * words.length)];
+}
+
+// Main function to get a random word
+async function getRandomWord() {
+  try {
+    // 70% chance to use API, 30% chance to use local words
+    if (Math.random() < 1) {
+      const word = await fetchRandomWord();
+      return word;
+    }
+    return getRandomLocalWord();
+  } catch (error) {
+    console.error('API failed, using local word:', error);
+    return getRandomLocalWord();
+  }
+}
 
 const rooms = new Map();
 
@@ -28,17 +118,20 @@ function generateRoomId() {
   return Math.random().toString(36).substring(2, 8).toUpperCase();
 }
 
-function getRandomWord() {
-  return words[Math.floor(Math.random() * words.length)];
-}
-
-function startNewRound(roomId) {
+async function startNewRound(roomId) {
   const room = rooms.get(roomId);
   if (!room) return;
 
   clearInterval(room.timerInterval);
   clearInterval(room.hintInterval);  // Clear any existing hint interval
-  room.word = getRandomWord();
+  
+  try {
+    room.word = await getRandomWord();
+  } catch (error) {
+    console.error('Error getting word, using fallback:', error);
+    room.word = getRandomLocalWord();
+  }
+
   room.timeLeft = room.settings.roundTime;
   room.currentDrawer = room.players[(room.currentDrawerIndex + 1) % room.players.length].id;
   room.currentDrawerIndex = (room.currentDrawerIndex + 1) % room.players.length;
