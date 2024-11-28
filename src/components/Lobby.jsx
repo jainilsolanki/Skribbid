@@ -57,7 +57,7 @@ const Lobby = ({ socket, username, roomId, players, onStartGame }) => {
                 <div>
                   <label className="block text-gray-300 mb-2">Number of Rounds</label>
                   <div className="grid grid-cols-3 gap-3">
-                    {[5, 7, 10].map((rounds) => (
+                    {[5, 7, 9].map((rounds) => (
                       <button
                         key={rounds}
                         onClick={() => setSettings(prev => ({ ...prev, maxRounds: rounds }))}
