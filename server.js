@@ -73,9 +73,11 @@ function startNewRound(roomId) {
 
     // Set up hint interval (every 30 seconds)
     room.hintInterval = setInterval(() => {
-      if (room.revealedIndices.size < room.word.replace(/\s/g, '').length) {
+      const wordWithoutSpaces = room.word.replace(/\s/g, '');
+      const maxReveals = Math.ceil(wordWithoutSpaces.length * 0.25); // Only reveal 25% of letters
+
+      if (room.revealedIndices.size < maxReveals) {
         // Find a random unrevealed letter (excluding spaces)
-        const wordWithoutSpaces = room.word.replace(/\s/g, '');
         const availableIndices = [];
         let spaceCount = 0;
         

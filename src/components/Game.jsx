@@ -197,7 +197,7 @@ const Game = ({ socket, username, roomId }) => {
                   {!isDrawer ? (
                     <div className="bg-gray-600 px-3 py-2 rounded flex items-center justify-center min-w-[150px]">
                       <div className="flex gap-4">
-                        {word.split(' ').map((wordPart, wordIndex) => (
+                        {word ? word.split(' ').map((wordPart, wordIndex) => (
                           <div key={wordIndex} className="flex gap-[2px] items-end">
                             {wordPart.split('').map((letter, letterIndex) => {
                               const adjustedIndex = wordPart.length * wordIndex + letterIndex;
@@ -211,12 +211,12 @@ const Game = ({ socket, username, roomId }) => {
                               );
                             })}
                           </div>
-                        ))}
+                        )) : <div className="text-gray-400">Waiting for word...</div>}
                       </div>
                     </div>
                   ) : (
                     <div className="bg-green-600 px-3 py-1 rounded">
-                      Word to draw: {word}
+                      Word to draw: {word || 'Waiting...'}
                     </div>
                   )}
                 </div>
