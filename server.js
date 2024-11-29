@@ -401,11 +401,19 @@ io.on('connection', (socket) => {
     }
   });
 
-  socket.on('draw', ({ roomId, x, y, color, drawing }) => {
-    console.log('Draw event received:', { roomId, x, y, color, drawing });
+  socket.on('draw', ({ roomId, x, y, color, drawing, tool, width }) => {
+    console.log('Draw event received:', { roomId, x, y, color, drawing, tool, width });
     const room = rooms.get(roomId);
     if (room && socket.id === room.currentDrawer) {
-      socket.to(roomId).emit('draw', { x, y, color, drawing });
+      socket.to(roomId).emit('draw', { x, y, color, drawing, tool, width });
+    }
+  });
+
+  socket.on('width_change', ({ roomId, width, tool }) => {
+    console.log('Width change event received:', { roomId, width, tool });
+    const room = rooms.get(roomId);
+    if (room && socket.id === room.currentDrawer) {
+      socket.to(roomId).emit('width_change', { width, tool });
     }
   });
 

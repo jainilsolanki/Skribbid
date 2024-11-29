@@ -19,7 +19,6 @@ const Canvas = ({ socket, roomId, isDrawer }) => {
   const [redoStack, setRedoStack] = useState([]);
   const [lineWidth, setLineWidth] = useState(2);
 
-  console.log("undoStack:", undoStack);
   
   // Initialize canvas and context
   useEffect(() => {
@@ -44,14 +43,27 @@ const Canvas = ({ socket, roomId, isDrawer }) => {
     canvas.style.width = `${rect.width}px`;
     canvas.style.height = `${rect.height}px`;
 
-    // Save initial canvas state
-    saveCanvasState();
+    // Reset drawing properties after DPI scaling
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    ctx.lineWidth = lineWidth;
+    ctx.strokeStyle = '#000000';
+
+    // Save initial blank canvas state
+    const blankState = canvas.toDataURL();
+    setUndoStack([blankState]);
   }, []); // Only run once on mount
 
   const saveCanvasState = () => {
     const canvas = canvasRef.current;
     if (!canvas) return;
-    setUndoStack(prev => [...prev, canvas.toDataURL()]);
+    
+    const newState = canvas.toDataURL();
+    setUndoStack(prev => {
+      // Don't add if it's the same as the last state
+      if (prev[prev.length - 1] === newState) return prev;
+      return [...prev, newState];
+    });
     setRedoStack([]); // Clear redo stack when new action is performed
   };
 
@@ -72,6 +84,8 @@ const Canvas = ({ socket, roomId, isDrawer }) => {
     img.onload = () => {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       ctx.drawImage(img, 0, 0);
+      
+      // Remove the current state from undo stack
       setUndoStack(prev => prev.slice(0, -1));
       
       // Emit the canvas state to other users
@@ -108,15 +122,29 @@ const Canvas = ({ socket, roomId, isDrawer }) => {
 
     socket.on('draw', (drawData) => {
       const { x, y, color, drawing, tool, width } = drawData;
-      context.strokeStyle = tool === 'eraser' ? '#FFFFFF' : color;
-      context.lineWidth = width;
       
       if (!drawing) {
         context.beginPath();
         context.moveTo(x, y);
-      } else {
+      }
+
+      // Set drawing properties
+      context.lineCap = 'round';
+      context.lineJoin = 'round';
+      context.strokeStyle = tool === 'eraser' ? '#FFFFFF' : color;
+      context.lineWidth = Number(width); // Ensure width is a number
+      
+      if (drawing) {
         context.lineTo(x, y);
         context.stroke();
+        context.beginPath();
+        context.moveTo(x, y);
+      }
+    });
+
+    socket.on('width_change', ({ width, tool }) => {
+      if (context) {
+        context.lineWidth = tool === 'eraser' ? width * 2 : width;
       }
     });
 
@@ -148,6 +176,7 @@ const Canvas = ({ socket, roomId, isDrawer }) => {
       socket.off('draw');
       socket.off('clear_canvas');
       socket.off('canvas_state');
+      socket.off('width_change');
     };
   }, [socket, context]);
 
@@ -157,6 +186,21 @@ const Canvas = ({ socket, roomId, isDrawer }) => {
       context.strokeStyle = color;
     }
   }, [color, context, currentTool]);
+
+  // Update line width when it changes
+  useEffect(() => {
+    if (context) {
+      const newWidth = currentTool === 'eraser' ? lineWidth * 2 : lineWidth;
+      context.lineWidth = newWidth;
+      
+      // Emit width change to other users
+      socket?.emit('width_change', {
+        roomId,
+        width: lineWidth,
+        tool: currentTool
+      });
+    }
+  }, [lineWidth, currentTool, context, socket, roomId]);
 
   const getMousePos = (e) => {
     const canvas = canvasRef.current;
@@ -174,18 +218,17 @@ const Canvas = ({ socket, roomId, isDrawer }) => {
     if (!isDrawer || !context) return;
 
     const pos = getMousePos(e);
+    const currentWidth = currentTool === 'eraser' ? lineWidth * 2 : lineWidth;
+    
+    // Set drawing properties
     context.beginPath();
     context.moveTo(pos.x, pos.y);
+    context.lineCap = 'round';
+    context.lineJoin = 'round';
+    context.strokeStyle = currentTool === 'eraser' ? '#FFFFFF' : color;
+    context.lineWidth = currentWidth;
+    
     setIsDrawing(true);
-
-    // Set appropriate styles based on tool
-    if (currentTool === 'eraser') {
-      context.strokeStyle = '#FFFFFF';
-      context.lineWidth = lineWidth * 2; // Bigger eraser
-    } else {
-      context.strokeStyle = color;
-      context.lineWidth = lineWidth;
-    }
 
     socket?.emit('draw', {
       roomId,
@@ -194,7 +237,7 @@ const Canvas = ({ socket, roomId, isDrawer }) => {
       color,
       drawing: false,
       tool: currentTool,
-      width: context.lineWidth
+      width: currentWidth
     });
   };
 
@@ -202,8 +245,18 @@ const Canvas = ({ socket, roomId, isDrawer }) => {
     if (!isDrawing || !isDrawer || !context) return;
 
     const pos = getMousePos(e);
+    const currentWidth = currentTool === 'eraser' ? lineWidth * 2 : lineWidth;
+    
+    // Ensure drawing properties are set
+    context.lineCap = 'round';
+    context.lineJoin = 'round';
+    context.strokeStyle = currentTool === 'eraser' ? '#FFFFFF' : color;
+    context.lineWidth = currentWidth;
+    
     context.lineTo(pos.x, pos.y);
     context.stroke();
+    context.beginPath();
+    context.moveTo(pos.x, pos.y);
 
     socket?.emit('draw', {
       roomId,
@@ -212,7 +265,7 @@ const Canvas = ({ socket, roomId, isDrawer }) => {
       color,
       drawing: true,
       tool: currentTool,
-      width: context.lineWidth
+      width: currentWidth
     });
   };
 
@@ -343,7 +396,10 @@ const Canvas = ({ socket, roomId, isDrawer }) => {
               <select
                 className="h-10 px-3 appearance-none bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-all text-gray-600 pr-8 cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500"
                 value={lineWidth}
-                onChange={(e) => setLineWidth(Number(e.target.value))}
+                onChange={(e) => {
+                  const newWidth = Number(e.target.value);
+                  setLineWidth(newWidth);
+                }}
                 title="Stroke Width"
               >
                 <option value="2">Thin</option>
