@@ -168,7 +168,7 @@ async function startNewRound(roomId) {
     io.to(roomId).emit('clear_canvas');
 
     // Send word choices to drawer
-    io.to(room.currentDrawer).emit('choose_word', {
+    io.to(roomId).emit('choose_word', {
       words: wordChoices,
       timeLeft: 10 // 10 seconds to choose
     });
@@ -556,6 +556,9 @@ io.on('connection', (socket) => {
     const chosenWord = room.wordChoices[wordIndex];
     if (!chosenWord) return;
 
+    // Notify all clients that a word was selected
+    io.to(roomId).emit('word_selected');
+    
     startRoundWithWord(roomId, chosenWord);
     delete room.wordChoices; // Clean up word choices
   });

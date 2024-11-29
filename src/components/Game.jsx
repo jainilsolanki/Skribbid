@@ -105,7 +105,7 @@ const Game = ({ socket, username, roomId }) => {
     socket.on('choose_word', ({ words, timeLeft }) => {
       setWordChoices(words);
       setWordChoiceTimer(timeLeft);
-      
+
       // Start countdown timer
       const countdownInterval = setInterval(() => {
         setWordChoiceTimer(prev => {
@@ -134,6 +134,11 @@ const Game = ({ socket, username, roomId }) => {
       };
     });
 
+    socket.on('word_selected', () => {
+      setWordChoices(null);
+      setWordChoiceTimer(0);
+    });
+
     return () => {
       socket.off('player_joined');
       socket.off('game_started');
@@ -147,6 +152,7 @@ const Game = ({ socket, username, roomId }) => {
       socket.off('word_lengths');
       socket.off('correct_guess');
       socket.off('choose_word');
+      socket.off('word_selected');
     };
   }, [socket, players, roomId]);
 
@@ -178,28 +184,50 @@ const Game = ({ socket, username, roomId }) => {
   };
 
   const WordChoiceOverlay = ({ words, onChoose }) => {
-    if (!words) return null;
-    
+    const isDrawer = currentDrawer === socket.id;
+    if (isDrawer && !words) return null;
+    if (!isDrawer && !wordChoiceTimer) return null;
+
     return (
       <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
         <div className="bg-gray-800 p-6 rounded-lg shadow-xl">
-          <div className="flex justify-between items-center mb-4">
-            <h2 className="text-xl font-bold">Choose a word to draw:</h2>
-            <div className="bg-blue-600 px-3 py-1 rounded-lg">
-              {wordChoiceTimer}s
+          {currentDrawer === socket.id ? (
+            words && (
+              <>
+                <h2 className="text-xl text-white mb-4 flex items-center gap-2 justify-between">
+                  Choose a word to draw!
+                  <div className='flex items-center justify-center'>
+                    <div className="w-10 h-10 absolute border-4 border-t-blue-600 border-r-transparent border-b-transparent border-l-transparent rounded-full animate-spin"></div>
+                    {wordChoiceTimer}s
+                  </div>
+                </h2>
+                <div className="flex gap-2">
+                  {words?.map((word, index) => (
+                    <button
+                      key={index}
+                      onClick={() => onChoose(index)}
+                      className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded"
+                    >
+                      {word}
+                    </button>
+                  ))}
+                </div>
+              </>
+            )
+          ) : (
+            <div className="text-center">
+              <div className="flex items-center justify-center mb-4">
+                <div className="w-8 h-8 border-4 border-t-blue-600 border-r-transparent border-b-transparent border-l-transparent rounded-full animate-spin mr-3"></div>
+                <h2 className="text-xl font-bold">Waiting for drawer...</h2>
+              </div>
+              <p className="text-gray-300">
+              {players.find(p => p.id === currentDrawer)?.username} is choosing a word
+              </p>
+              <div className="mt-3 text-2xl font-bold text-blue-500">
+                {wordChoiceTimer}s
+              </div>
             </div>
-          </div>
-          <div className="space-y-3">
-            {words.map((word, index) => (
-              <button
-                key={index}
-                onClick={() => onChoose(index)}
-                className="w-full px-6 py-3 bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors text-lg"
-              >
-                {word}
-              </button>
-            ))}
-          </div>
+          )}
         </div>
       </div>
     );
@@ -323,8 +351,8 @@ const Game = ({ socket, username, roomId }) => {
                   <div
                     key={player.id}
                     className={`p-2 rounded ${player.id === currentDrawer
-                        ? 'bg-green-600/20 border border-green-500'
-                        : 'bg-gray-700'
+                      ? 'bg-green-600/20 border border-green-500'
+                      : 'bg-gray-700'
                       }`}
                   >
                     <div className="flex justify-between items-center">
@@ -341,7 +369,7 @@ const Game = ({ socket, username, roomId }) => {
             {/* Chat & Guesses */}
             <div className="bg-gray-800 p-4 rounded-lg">
               <h2 className="text-xl font-semibold mb-3">Chat & Guesses</h2>
-              <div 
+              <div
                 ref={chatContainerRef}
                 className="h-[calc(100vh-24rem)] overflow-y-auto border border-gray-700 rounded p-2 mb-4 bg-gray-900/50 scroll-smooth"
               >
@@ -349,8 +377,8 @@ const Game = ({ socket, username, roomId }) => {
                   <div
                     key={index}
                     className={`mb-2 p-2 rounded ${message.type === 'system'
-                        ? 'bg-yellow-900/30 text-yellow-200'
-                        : 'bg-gray-800'
+                      ? 'bg-yellow-900/30 text-yellow-200'
+                      : 'bg-gray-800'
                       }`}
                   >
                     {message.player && <span className="font-medium text-blue-400">{message.player}: </span>}
