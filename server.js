@@ -153,6 +153,7 @@ async function startNewRound(roomId) {
   room.roundActive = false; // Don't start round until word is chosen
   room.currentRound = (room.currentRound || 0) + 1;
   room.revealedIndices = new Set();
+  room.correctGuessers = new Set(); // Reset correct guessers for new round
 
   // Generate 3 random words
   try {
@@ -424,6 +425,14 @@ io.on('connection', (socket) => {
     const player = room.players.find(p => p.id === socket.id);
     if (!player) return;
 
+    // Initialize correctGuessers if it doesn't exist
+    if (!room.correctGuessers) {
+      room.correctGuessers = new Set();
+    }
+
+    // If player has already guessed correctly, ignore their guess
+    if (room.correctGuessers.has(socket.id)) return;
+
     const cleanGuess = guess.toLowerCase().trim();
     const cleanWord = room.word.toLowerCase().trim();
     
@@ -434,12 +443,15 @@ io.on('connection', (socket) => {
       const points = Math.ceil((room.timeLeft / room.settings.roundTime) * 500);
       room.scores[socket.id] = (room.scores[socket.id] || 0) + points;
       
-      // Broadcast the guess and correct guess events
-      io.to(roomId).emit('chat_message', {
-        player: player.username,
-        message: guess,
-        type: 'guess'
-      });
+      // Add player to correct guessers
+      room.correctGuessers.add(socket.id);
+      
+      // Broadcast the correct guess event
+      // io.to(roomId).emit('chat_message', {
+      //   player: 'System',
+      //   message: `${player.username} guessed the word correctly!`,
+      //   type: 'system'
+      // });
       
       io.to(roomId).emit('correct_guess', {
         player: socket.id,
@@ -448,7 +460,7 @@ io.on('connection', (socket) => {
 
       // Check if everyone has guessed correctly
       const nonDrawerPlayers = room.players.filter(p => p.id !== room.currentDrawer);
-      const allGuessedCorrectly = nonDrawerPlayers.every(p => room.scores[p.id] > 0);
+      const allGuessedCorrectly = nonDrawerPlayers.every(p => room.correctGuessers.has(p.id));
       
       if (allGuessedCorrectly) {
         endRound(roomId);
