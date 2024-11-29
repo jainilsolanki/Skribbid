@@ -417,6 +417,14 @@ io.on('connection', (socket) => {
     }
   });
 
+  socket.on('canvas_state', ({ roomId, state }) => {
+    const room = rooms.get(roomId);
+    if (!room || socket.id !== room.currentDrawer) return;
+
+    // Broadcast the canvas state to all other users in the room
+    socket.to(roomId).emit('canvas_state', { state });
+  });
+
   socket.on('guess', ({ roomId, guess }) => {
     console.log('Guess received:', { roomId, guess });
     const room = rooms.get(roomId);
