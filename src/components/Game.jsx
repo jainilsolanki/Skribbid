@@ -25,6 +25,28 @@ const Game = ({ socket, username, roomId }) => {
   const [revealedIndices, setRevealedIndices] = useState([]);
   const [wordChoiceTimer, setWordChoiceTimer] = useState(0);
   const chatContainerRef = useRef(null);
+  const [isDarkMode, setIsDarkMode] = useState(window.matchMedia('(prefers-color-scheme: dark)').matches);
+
+  useEffect(() => {
+    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+    const handleChange = (e) => setIsDarkMode(e.matches);
+    mediaQuery.addEventListener('change', handleChange);
+    return () => mediaQuery.removeEventListener('change', handleChange);
+  }, []);
+
+  const theme = {
+    bg: isDarkMode ? 'bg-gray-900' : 'bg-gray-50',
+    text: isDarkMode ? 'text-white' : 'text-gray-900',
+    card: isDarkMode ? 'bg-gray-800' : 'bg-white',
+    border: isDarkMode ? 'border-gray-700' : 'border-gray-200',
+    button: isDarkMode ? 'bg-blue-600 hover:bg-blue-700' : 'bg-blue-500 hover:bg-blue-600',
+    buttonText: 'text-white',
+    accent: isDarkMode ? 'bg-blue-600/20' : 'bg-blue-50',
+    accentBorder: isDarkMode ? 'border-blue-500' : 'border-blue-400',
+    input: isDarkMode ? 'bg-gray-700' : 'bg-gray-100',
+    chat: isDarkMode ? 'bg-gray-800/50' : 'bg-gray-100/50',
+    system: isDarkMode ? 'bg-yellow-900/30 text-yellow-200' : 'bg-yellow-50 text-yellow-800'
+  };
 
   useEffect(() => {
     if (!socket) return;
@@ -189,24 +211,24 @@ const Game = ({ socket, username, roomId }) => {
     if (!isDrawer && !wordChoiceTimer) return null;
 
     return (
-      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-        <div className="bg-gray-800 p-6 rounded-lg shadow-xl">
+      <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
+        <div className={`${theme.card} p-8 rounded-2xl shadow-xl max-w-lg w-full mx-4 border ${theme.border}`}>
           {currentDrawer === socket.id ? (
             words && (
               <>
-                <h2 className="text-xl text-white mb-4 flex items-center gap-2 justify-between">
+                <h2 className={`text-2xl font-bold ${theme.text} mb-6 flex items-center justify-between`}>
                   Choose a word to draw!
-                  <div className='flex items-center justify-center'>
-                    <div className="w-10 h-10 absolute border-4 border-t-blue-600 border-r-transparent border-b-transparent border-l-transparent rounded-full animate-spin"></div>
-                    {wordChoiceTimer}s
+                  <div className='relative flex items-center justify-center w-16 h-16'>
+                    <div className="absolute w-16 h-16 border-4 border-t-blue-500 border-r-transparent border-b-transparent border-l-transparent rounded-full animate-spin"></div>
+                    <span className="text-2xl font-bold text-blue-500">{wordChoiceTimer}s</span>
                   </div>
                 </h2>
-                <div className="flex gap-2">
+                <div className="grid grid-cols-1 gap-3">
                   {words?.map((word, index) => (
                     <button
                       key={index}
                       onClick={() => onChoose(index)}
-                      className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded"
+                      className={`${theme.button} ${theme.buttonText} px-6 py-4 rounded-xl text-lg font-medium transition-all transform hover:scale-[1.02] active:scale-[0.98]`}
                     >
                       {word}
                     </button>
@@ -215,19 +237,119 @@ const Game = ({ socket, username, roomId }) => {
               </>
             )
           ) : (
-            <div className="text-center">
-              <div className="flex items-center justify-center mb-4">
-                <div className="w-8 h-8 border-4 border-t-blue-600 border-r-transparent border-b-transparent border-l-transparent rounded-full animate-spin mr-3"></div>
-                <h2 className="text-xl font-bold">Waiting for drawer...</h2>
+            <div className="text-center py-4">
+              <div className="relative w-24 h-24 mx-auto mb-6">
+                <div className={`w-24 h-24 border-4 border-t-blue-500 border-r-transparent border-b-transparent border-l-transparent rounded-full animate-spin`}></div>
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <span className="text-3xl font-bold text-blue-500">{wordChoiceTimer}s</span>
+                </div>
               </div>
-              <p className="text-gray-300">
-              {players.find(p => p.id === currentDrawer)?.username} is choosing a word
+              <h2 className={`text-2xl font-bold ${theme.text} mb-4`}>Waiting for drawer...</h2>
+              <p className="text-gray-400 text-lg mb-2">
+                {players.find(p => p.id === currentDrawer)?.username} is choosing a word
               </p>
-              <div className="mt-3 text-2xl font-bold text-blue-500">
-                {wordChoiceTimer}s
-              </div>
             </div>
           )}
+        </div>
+      </div>
+    );
+  };
+
+  const Menu = ({ onCreateRoom, onJoinRoom, theme }) => {
+    const [username, setUsername] = useState('');
+    const [roomToJoin, setRoomToJoin] = useState('');
+    const [showJoinForm, setShowJoinForm] = useState(false);
+
+    const handleCreateSubmit = (e) => {
+      e.preventDefault();
+      if (username.trim()) {
+        onCreateRoom(username.trim());
+      }
+    };
+
+    const handleJoinSubmit = (e) => {
+      e.preventDefault();
+      if (username.trim() && roomToJoin.trim()) {
+        onJoinRoom(username.trim(), roomToJoin.trim());
+      }
+    };
+
+    return (
+      <div className={`min-h-screen ${theme.bg} ${theme.text} flex items-center justify-center p-4`}>
+        <div className={`${theme.card} max-w-md w-full p-8 rounded-2xl shadow-xl border ${theme.border}`}>
+          <h1 className="text-4xl font-bold text-center mb-2 bg-gradient-to-r from-blue-500 to-purple-500 text-transparent bg-clip-text">
+            Skribbid Together
+          </h1>
+          <p className="text-center text-gray-400 mb-8">Draw, Guess, and Have Fun!</p>
+
+          <div className="space-y-6">
+            {!showJoinForm ? (
+              <form onSubmit={handleCreateSubmit} className="space-y-6">
+                <div>
+                  <label className="block text-sm font-medium mb-2">Your Name</label>
+                  <input
+                    type="text"
+                    value={username}
+                    onChange={(e) => setUsername(e.target.value)}
+                    placeholder="Enter your name"
+                    className={`w-full ${theme.input} ${theme.text} px-4 py-3 rounded-xl border ${theme.border} focus:outline-none focus:ring-2 focus:ring-blue-500`}
+                    required
+                  />
+                </div>
+                <button
+                  type="submit"
+                  className={`w-full ${theme.button} ${theme.buttonText} py-3 rounded-xl font-medium transition-all transform hover:scale-[1.02] active:scale-[0.98]`}
+                >
+                  Create New Room
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowJoinForm(true)}
+                  className={`w-full bg-transparent border ${theme.border} ${theme.text} py-3 rounded-xl font-medium hover:bg-gray-100 dark:hover:bg-gray-800 transition-all`}
+                >
+                  Join Existing Room
+                </button>
+              </form>
+            ) : (
+              <form onSubmit={handleJoinSubmit} className="space-y-6">
+                <div>
+                  <label className="block text-sm font-medium mb-2">Your Name</label>
+                  <input
+                    type="text"
+                    value={username}
+                    onChange={(e) => setUsername(e.target.value)}
+                    placeholder="Enter your name"
+                    className={`w-full ${theme.input} ${theme.text} px-4 py-3 rounded-xl border ${theme.border} focus:outline-none focus:ring-2 focus:ring-blue-500`}
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-2">Room Code</label>
+                  <input
+                    type="text"
+                    value={roomToJoin}
+                    onChange={(e) => setRoomToJoin(e.target.value)}
+                    placeholder="Enter room code"
+                    className={`w-full ${theme.input} ${theme.text} px-4 py-3 rounded-xl border ${theme.border} focus:outline-none focus:ring-2 focus:ring-blue-500`}
+                    required
+                  />
+                </div>
+                <button
+                  type="submit"
+                  className={`w-full ${theme.button} ${theme.buttonText} py-3 rounded-xl font-medium transition-all transform hover:scale-[1.02] active:scale-[0.98]`}
+                >
+                  Join Room
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowJoinForm(false)}
+                  className={`w-full bg-transparent border ${theme.border} ${theme.text} py-3 rounded-xl font-medium hover:bg-gray-100 dark:hover:bg-gray-800 transition-all`}
+                >
+                  Back to Create Room
+                </button>
+              </form>
+            )}
+          </div>
         </div>
       </div>
     );
@@ -256,160 +378,185 @@ const Game = ({ socket, username, roomId }) => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-900 text-white p-4">
+    <div className={`min-h-screen ${theme.bg} ${theme.text} p-4`}>
       <WordChoiceOverlay
         words={wordChoices}
         onChoose={(index) => {
           socket.emit('choose_word', { roomId, wordIndex: index });
-          setWordChoices(null); // Clear word choices after manual selection
+          setWordChoices(null);
           setWordChoiceTimer(0);
         }}
       />
-      <div className="max-w-6xl mx-auto">
-        {/* Header with Room Info */}
-        <div className="bg-gray-800 rounded-lg p-4 mb-4 flex justify-between items-center">
-          <div className="flex items-center space-x-4">
-            <h1 className="text-2xl font-bold">Skribbid Together</h1>
-            <div className="bg-blue-600/20 border border-blue-500 px-4 py-2 rounded-lg flex items-baseline gap-2">
-              Room ID: <span className="font-mono font-bold">{roomId}</span>
-              <button
-                onClick={() => navigator.clipboard.writeText(roomId)}
-                className="ml-2 px-2 py-1 bg-blue-500 hover:bg-blue-600 rounded text-sm transition-colors"
-                title="Copy Room ID"
-              >
-                Copy
-              </button>
+      <div className="max-w-7xl mx-auto">
+        {/* Header */}
+        <div className={`${theme.card} rounded-2xl p-6 mb-6 border ${theme.border} flex justify-between items-center`}>
+          <div className="flex items-center space-x-6">
+            <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-500 to-purple-500 text-transparent bg-clip-text">Skribbid Together</h1>
+            <div className={`${theme.accent} ${theme.accentBorder} border px-4 py-2 rounded-xl`}>
+              Room: {roomId}
             </div>
           </div>
           <div className="flex items-center gap-4">
-            <div className="bg-purple-600/20 border border-purple-500 px-4 py-2 rounded-lg">
-              Round {currentRound}/{gameSettings.maxRounds}
-            </div>
-            <div className="text-gray-400">
-              Playing as: <span className="font-semibold text-white">{username}</span>
-            </div>
+            <button
+              onClick={() => setIsDarkMode(!isDarkMode)}
+              className={`p-2 rounded-lg ${theme.input} transition-colors`}
+            >
+              {isDarkMode ? '🌞' : '🌙'}
+            </button>
+            <button
+              onClick={handleExitToMenu}
+              className={`${theme.button} ${theme.buttonText} px-4 py-2 rounded-xl`}
+            >
+              Exit Game
+            </button>
           </div>
         </div>
 
-        <div className="grid grid-cols-12 gap-4">
-          {/* Main Canvas Area */}
-          <div className="col-span-9">
-            <div className="bg-gray-800 rounded-lg p-4">
-              <div className="flex justify-between items-center mb-4">
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+          {/* Main Game Area */}
+          <div className="lg:col-span-3 space-y-6">
+            {/* Game Info Bar */}
+            <div className={`${theme.card} p-4 rounded-2xl border ${theme.border}`}>
+              <div className="flex items-center justify-between">
                 <div className="flex items-center gap-4">
-                  <div className="bg-blue-600 px-3 py-1 rounded">
+                  {/* Timer */}
+                  <div className={`${theme.accent} ${theme.accentBorder} border px-4 py-2 rounded-xl font-medium`}>
                     Time: {timeLeft}s
                   </div>
+                  
+                  {/* Round Counter */}
+                  <div className={`${theme.accent} ${theme.accentBorder} border px-4 py-2 rounded-xl font-medium`}>
+                    Round {currentRound}/{gameSettings.maxRounds}
+                  </div>
+
+                  {/* Word Display */}
                   {!isDrawer ? (
-                    <div className="bg-gray-600 px-3 py-2 rounded flex items-center justify-center min-w-[150px]">
-                      <div className="flex gap-4">
-                        {word ? word.split(' ').map((wordPart, wordIndex) => (
-                          <div key={wordIndex} className="flex gap-[2px] items-end">
-                            {wordPart.split('').map((letter, letterIndex) => {
-                              const adjustedIndex = wordPart.length * wordIndex + letterIndex;
-                              const isRevealed = revealedIndices.includes(adjustedIndex);
-                              return isRevealed ? (
-                                <div key={letterIndex} className="w-6 text-center border-b-2 border-white">
-                                  {letter}
-                                </div>
-                              ) : (
-                                <div key={letterIndex} className="w-6 h-[2px] bg-white" />
-                              );
-                            })}{/* Add word length */}
-                            {wordPart.length}
-                          </div>
-                        )) : <div className="text-gray-400">Waiting for word...</div>}
-                      </div>
+                    <div className={`${theme.input} px-4 py-2 rounded-xl min-w-[200px] text-center`}>
+                      {word ? (
+                        <div className="flex gap-4">
+                          {word.split(' ').map((wordPart, wordIndex) => (
+                            <div key={wordIndex} className="flex gap-[2px] items-end">
+                              {wordPart.split('').map((letter, letterIndex) => {
+                                const adjustedIndex = wordPart.length * wordIndex + letterIndex;
+                                const isRevealed = revealedIndices.includes(adjustedIndex);
+                                return isRevealed ? (
+                                  <div key={letterIndex} className={`w-6 text-center border-b-2 ${theme.border}`}>
+                                    {letter}
+                                  </div>
+                                ) : (
+                                  <div key={letterIndex} className="relative w-6">
+                                    <div className={`absolute bottom-0 left-0 right-0 h-0.5 ${isDarkMode ? 'bg-white' : 'bg-gray-900'}`} />
+                                  </div>
+                                );
+                              })}
+                              <span className="text-xs text-gray-400 ml-1">{wordPart.length}</span>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <span className="text-gray-400">Waiting for word...</span>
+                      )}
                     </div>
                   ) : (
-                    <div className="bg-green-600 px-3 py-1 rounded">
+                    <div className={`${theme.accent} ${theme.accentBorder} border px-4 py-2 rounded-xl font-medium`}>
                       Word to draw: {word || 'Waiting...'}
                     </div>
                   )}
                 </div>
+
+                {/* Current Drawer */}
                 {currentDrawer !== socket.id && (
-                  <div className="bg-purple-600 px-3 py-1 rounded">
+                  <div className={`${theme.accent} ${theme.accentBorder} border px-4 py-2 rounded-xl font-medium`}>
                     {players.find(p => p.id === currentDrawer)?.username}'s turn
                   </div>
                 )}
               </div>
+            </div>
+
+            {/* Canvas */}
+            <div className={`${theme.card} p-6 rounded-2xl border ${theme.border}`}>
               <Canvas
+                isDrawer={currentDrawer === socket.id}
                 socket={socket}
                 roomId={roomId}
-                isDrawer={currentDrawer === socket.id}
+                theme={theme}
               />
             </div>
+
+            {/* Chat Input */}
+            {currentDrawer !== socket.id && (
+              <form onSubmit={handleGuess} className="flex gap-4">
+                <input
+                  type="text"
+                  value={guess}
+                  onChange={(e) => setGuess(e.target.value)}
+                  placeholder="Type your guess here..."
+                  className={`flex-1 ${theme.input} ${theme.text} px-4 py-3 rounded-xl border ${theme.border} focus:outline-none focus:ring-2 focus:ring-blue-500`}
+                  disabled={!roundActive}
+                />
+                <button
+                  type="submit"
+                  className={`${theme.button} ${theme.buttonText} px-6 py-3 rounded-xl font-medium`}
+                  disabled={!roundActive}
+                >
+                  Guess
+                </button>
+              </form>
+            )}
           </div>
 
-          {/* Right Sidebar */}
-          <div className="col-span-3 space-y-4">
-            {/* Players List */}
-            <div className="bg-gray-800 p-4 rounded-lg">
-              <h2 className="text-xl font-semibold mb-3">Players</h2>
-              <div className="space-y-2">
+          {/* Sidebar */}
+          <div className="space-y-6">
+            {/* Players */}
+            <div className={`${theme.card} p-6 rounded-2xl border ${theme.border}`}>
+              <h2 className="text-xl font-bold mb-4">Players</h2>
+              <div className="space-y-3">
                 {players.map((player) => (
                   <div
                     key={player.id}
-                    className={`p-2 rounded ${player.id === currentDrawer
-                      ? 'bg-green-600/20 border border-green-500'
-                      : 'bg-gray-700'
-                      }`}
+                    className={`p-3 rounded-xl ${
+                      player.id === currentDrawer
+                        ? `${theme.accent} border ${theme.accentBorder}`
+                        : theme.input
+                    }`}
                   >
                     <div className="flex justify-between items-center">
-                      <span>{player.username}</span>
-                      <span className="font-medium">
-                        {scores[player.id] || 0}
-                      </span>
+                      <span className="font-medium">{player.username}</span>
+                      <span className="font-bold text-blue-500">{player.score}</span>
                     </div>
                   </div>
                 ))}
               </div>
             </div>
 
-            {/* Chat & Guesses */}
-            <div className="bg-gray-800 p-4 rounded-lg">
-              <h2 className="text-xl font-semibold mb-3">Chat & Guesses</h2>
+            {/* Chat Messages */}
+            <div className={`${theme.card} p-6 rounded-2xl border ${theme.border}`}>
+              <h2 className="text-xl font-bold mb-4">Chat & Guesses</h2>
               <div
                 ref={chatContainerRef}
-                className="h-[calc(100vh-24rem)] overflow-y-auto border border-gray-700 rounded p-2 mb-4 bg-gray-900/50 scroll-smooth"
+                className={`h-[calc(100vh-32rem)] overflow-y-auto border ${theme.border} rounded-xl p-4 ${theme.chat} scroll-smooth`}
               >
                 {chatMessages.map((message, index) => (
                   <div
                     key={index}
-                    className={`mb-2 p-2 rounded ${message.type === 'system'
-                      ? 'bg-yellow-900/30 text-yellow-200'
-                      : 'bg-gray-800'
-                      }`}
+                    className={`mb-3 p-3 rounded-xl ${
+                      message.type === 'system'
+                        ? theme.system
+                        : theme.input
+                    }`}
                   >
-                    {message.player && <span className="font-medium text-blue-400">{message.player}: </span>}
+                    {message.player && (
+                      <span className="font-medium text-blue-500">{message.player}: </span>
+                    )}
                     {message.message}
                   </div>
                 ))}
                 {systemMessage && (
-                  <div className="mb-2 p-2 rounded bg-yellow-900/30 text-yellow-200">
+                  <div className={`mb-3 p-3 rounded-xl ${theme.system}`}>
                     {systemMessage}
                   </div>
                 )}
               </div>
-              {currentDrawer !== socket.id && (
-                <form onSubmit={handleGuess} className="flex gap-2">
-                  <input
-                    type="text"
-                    value={guess}
-                    onChange={(e) => setGuess(e.target.value)}
-                    className="flex-1 p-2 bg-gray-700 rounded border border-gray-600 focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
-                    placeholder="Type your guess..."
-                    disabled={!roundActive}
-                  />
-                  <button
-                    type="submit"
-                    className="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded disabled:opacity-50"
-                    disabled={!roundActive}
-                  >
-                    Guess
-                  </button>
-                </form>
-              )}
             </div>
           </div>
         </div>

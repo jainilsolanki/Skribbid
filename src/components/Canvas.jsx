@@ -157,6 +157,9 @@ const Canvas = ({ socket, roomId, isDrawer }) => {
         // Reset color to black
         setColor('#000000');
         context.strokeStyle = '#000000';
+        // Clear undo/redo stacks when canvas is cleared
+        setUndoStack([]);
+        setRedoStack([]);
         saveCanvasState();
       }
     });
@@ -172,11 +175,18 @@ const Canvas = ({ socket, roomId, isDrawer }) => {
       };
     });
 
+    socket.on('round_ended', () => {
+      // Clear undo/redo stacks when round ends
+      setUndoStack([]);
+      setRedoStack([]);
+    });
+
     return () => {
       socket.off('draw');
       socket.off('clear_canvas');
       socket.off('canvas_state');
       socket.off('width_change');
+      socket.off('round_ended');
     };
   }, [socket, context]);
 
