@@ -395,6 +395,10 @@ const Game = ({ socket, username, roomId }) => {
             <div className={`${theme.accent} ${theme.accentBorder} border px-4 py-2 rounded-xl`}>
               Room: {roomId}
             </div>
+            {/* Score Display */}
+            <div className={`${theme.accent} ${theme.accentBorder} border px-4 py-2 rounded-xl`}>
+              Score: {scores[socket.id] || 0}
+            </div>
           </div>
           <div className="flex items-center gap-4">
             <button
@@ -521,8 +525,13 @@ const Game = ({ socket, username, roomId }) => {
                     }`}
                   >
                     <div className="flex justify-between items-center">
-                      <span className="font-medium">{player.username}</span>
-                      <span className="font-bold text-blue-500">{player.score}</span>
+                      <span className="font-medium">
+                        {player.username}
+                        {player.id === socket.id && (
+                          <span className="ml-1 text-sm text-gray-400">(You)</span>
+                        )}
+                      </span>
+                      <span className="font-bold text-blue-500">{scores[player.id] || 0} pts</span>
                     </div>
                   </div>
                 ))}
