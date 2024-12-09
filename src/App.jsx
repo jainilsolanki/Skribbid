@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { io } from 'socket.io-client';
 import Game from './components/Game';
 
-const ENDPOINT =  import.meta.env.VITE_ENDPOINT;
+const ENDPOINT = import.meta.env.VITE_ENDPOINT;
 
 function App() {
   const [socket, setSocket] = useState(null);
@@ -65,64 +65,126 @@ function App() {
   }
 
   return (
-    <div className="h-full w-full grid grid-cols-1 md:grid-cols-12">
-      {/* Left Column - Form (4/12) */}
-      <div className="md:col-span-4 bg-gray-900 flex items-center justify-center p-8">
-        <div className="w-full max-w-md">
-          <div className="backdrop-blur-lg bg-white/5 p-8 rounded-2xl shadow-2xl border border-white/10">
-            <h1 className="text-4xl font-bold text-white mb-8 text-center">Skribbid Together</h1>
-            {error && (
-              <div className="bg-red-500/20 border border-red-500 text-red-200 p-3 rounded mb-4">
-                {error}
+    <div className="min-h-screen bg-gradient-to-br from-blue-900 via-gray-900 to-purple-900 text-white">
+      <div className="container mx-auto px-4 py-12 lg:py-24">
+        <div className="max-w-7xl mx-auto">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
+            {/* Left Column - Welcome Text */}
+            <div className="text-center lg:text-left space-y-8">
+              <h1 className="text-5xl lg:text-7xl font-bold">
+                <span className="bg-gradient-to-r from-blue-400 to-purple-400 text-transparent bg-clip-text">
+                  Skribbid Together
+                </span>
+              </h1>
+              <p className="text-xl text-gray-300 leading-relaxed max-w-2xl">
+                Draw, guess, and have fun with friends in this multiplayer drawing and guessing game. 
+                Create a room or join one to start playing!
+              </p>
+              
+              {/* Features Grid */}
+              <div className="pt-8">
+                <div className="flex items-center gap-4 mb-6">
+                  <div className="flex-1 h-px bg-gradient-to-r from-blue-500/50 to-transparent"></div>
+                  <span className="text-gray-400 font-medium">Game Features</span>
+                  <div className="flex-1 h-px bg-gradient-to-l from-purple-500/50 to-transparent"></div>
+                </div>
+                <div className="grid grid-cols-2 gap-6">
+                  {[
+                    { icon: '🎨', title: 'Real-time Drawing', desc: 'Draw and watch others draw in real-time' },
+                    { icon: '🎯', title: 'Score Points', desc: 'Earn points by guessing correctly' },
+                    { icon: '💬', title: 'Live Chat', desc: 'Chat and guess with other players' },
+                    { icon: '🏆', title: 'Leaderboard', desc: 'Compete to reach the top' },
+                  ].map((feature, index) => (
+                    <div 
+                      key={index}
+                      className="p-4 rounded-xl bg-white/5 border border-white/10 backdrop-blur-sm hover:bg-white/10 transition-all"
+                    >
+                      <div className="text-2xl mb-2">{feature.icon}</div>
+                      <h3 className="font-semibold text-lg mb-1">{feature.title}</h3>
+                      <p className="text-sm text-gray-400">{feature.desc}</p>
+                    </div>
+                  ))}
+                </div>
               </div>
-            )}
-            <div className="space-y-6">
-              <div>
-                <input
-                  type="text"
-                  placeholder="Enter your username"
-                  value={username}
-                  onChange={(e) => setUsername(e.target.value)}
-                  className="w-full px-4 py-3 rounded-lg bg-white/5 border border-white/10 text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-white/25"
-                />
-              </div>
-              <div>
-                <input
-                  type="text"
-                  placeholder="Enter room ID (optional)"
-                  value={roomId}
-                  onChange={(e) => setRoomId(e.target.value)}
-                  className="w-full px-4 py-3 rounded-lg bg-white/5 border border-white/10 text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-white/25"
-                />
-              </div>
-              <div className="space-y-4">
-                <button
-                  onClick={handleJoin}
-                  disabled={!username || !roomId}
-                  className="w-full px-6 py-3 rounded-lg bg-white/10 hover:bg-white/20 text-white font-semibold transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  Join Room
-                </button>
-                <button
-                  onClick={handleCreateRoom}
-                  disabled={!username}
-                  className="w-full px-6 py-3 rounded-lg bg-white/10 hover:bg-white/20 text-white font-semibold transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  Create New Room
-                </button>
+            </div>
+
+            {/* Right Column - Join Form */}
+            <div className="w-full max-w-md mx-auto">
+              <div className="backdrop-blur-xl bg-white/5 p-8 rounded-2xl shadow-2xl border border-white/10 relative overflow-hidden">
+                <div className="absolute inset-0 bg-gradient-to-br from-blue-500/10 to-purple-500/10"></div>
+                <div className="relative">
+                  <h2 className="text-3xl font-bold text-center mb-8">
+                    Join the Fun
+                  </h2>
+                  
+                  {error && (
+                    <div className="bg-red-500/10 border border-red-500/50 text-red-200 p-4 rounded-xl mb-6 backdrop-blur-sm">
+                      <p className="text-sm">{error}</p>
+                    </div>
+                  )}
+
+                  <div className="space-y-6">
+                    <div>
+                      <label className="block text-gray-300 text-sm font-medium mb-2">
+                        Username
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="Enter your username"
+                        value={username}
+                        onChange={(e) => setUsername(e.target.value)}
+                        className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white placeholder-white/30 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-transparent transition-all"
+                      />
+                    </div>
+                    
+                    <div>
+                      <label className="block text-gray-300 text-sm font-medium mb-2">
+                        Room ID
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="Enter room ID (optional)"
+                        value={roomId}
+                        onChange={(e) => setRoomId(e.target.value)}
+                        className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white placeholder-white/30 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-transparent transition-all"
+                      />
+                    </div>
+
+                    <div className="space-y-4 pt-4">
+                      <button
+                        onClick={handleJoin}
+                        disabled={!username || !roomId}
+                        className="w-full px-6 py-4 rounded-xl bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 text-white font-semibold transition-all transform hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none shadow-lg disabled:shadow-none"
+                      >
+                        Join Room
+                      </button>
+                      
+                      <div className="relative">
+                        <div className="absolute inset-0 flex items-center">
+                          <div className="w-full border-t border-white/10"></div>
+                        </div>
+                        <div className="relative flex justify-center text-sm">
+                          <span className="px-2 bg-gray-900/50 text-gray-400 backdrop-blur-sm">
+                            or
+                          </span>
+                        </div>
+                      </div>
+
+                      <button
+                        onClick={handleCreateRoom}
+                        disabled={!username}
+                        className="w-full px-6 py-4 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 text-white font-semibold transition-all transform hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
+                      >
+                        Create New Room
+                      </button>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
         </div>
       </div>
-
-      {/* Right Column - Image (8/12) */}
-      <div 
-        className="hidden md:block md:col-span-8 h-full w-full bg-cover bg-center bg-no-repeat"
-        style={{
-          backgroundImage: `url('https://images.unsplash.com/photo-1671955101204-42ea9a352cdb?q=80&w=2071&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D')`
-        }}
-      />
     </div>
   );
 }
